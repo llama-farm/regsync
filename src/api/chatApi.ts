@@ -1,11 +1,15 @@
-import { apiClient, projectUrl } from './client'
+import { apiClient, projectUrl, DATASET } from './client'
 import type { CitedSource } from '@/types/chat'
+
+// Default embedding strategy for the nomic-ai model configured in llamafarm.yaml
+const EMBEDDING_STRATEGY = 'default_embeddings'
 
 interface RAGQueryRequest {
   query: string
   database?: string
   top_k?: number
   retrieval_strategy?: 'semantic' | 'bm25' | 'hybrid'
+  embedding_strategy?: string
   score_threshold?: number
 }
 
@@ -63,9 +67,10 @@ export const chatApi = {
       projectUrl('/rag/query'),
       {
         query: request.query,
-        database: request.database || 'main',
+        database: request.database || DATASET,
         top_k: request.top_k || 5,
         retrieval_strategy: request.retrieval_strategy || 'semantic',
+        embedding_strategy: request.embedding_strategy || EMBEDDING_STRATEGY,
         score_threshold: request.score_threshold,
       }
     )
@@ -85,17 +90,22 @@ export const chatApi = {
     answer: string
     sources: CitedSource[]
   }> {
+    const ragEnabled = options?.ragEnabled ?? true
+
     const { data } = await apiClient.post<ChatCompletionResponse>(
       projectUrl('/chat/completions'),
       {
         messages,
         max_tokens: options?.maxTokens || 1024,
         temperature: options?.temperature || 0.7,
-        rag_enabled: options?.ragEnabled ?? true,
-        database: options?.database || 'main',
-        rag_top_k: 5,
-        rag_score_threshold: 0.5,
-        rag_retrieval_strategy: 'semantic',
+        // Use nested rag object format expected by LlamaFarm
+        ...(ragEnabled && {
+          rag: {
+            database: options?.database || DATASET,
+            top_k: 5,
+            embedding_strategy: EMBEDDING_STRATEGY,
+          }
+        })
       }
     )
 
@@ -119,8 +129,10 @@ export const chatApi = {
   async search(query: string, topK = 5): Promise<CitedSource[]> {
     const response = await this.ragQuery({
       query,
+      database: DATASET,
       top_k: topK,
       retrieval_strategy: 'semantic',
+      embedding_strategy: EMBEDDING_STRATEGY,
     })
 
     return response.results.map((result) => ({
