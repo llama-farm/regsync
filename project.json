@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json.schemastore.org/nx-project",
+  "name": "regsync",
+  "root": "regsync",
+  "projectType": "application",
+  "targets": {
+    "dev": {
+      "executor": "nx:run-commands",
+      "continuous": true,
+      "options": {
+        "command": "npm run dev",
+        "cwd": "regsync"
+      }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run build",
+        "cwd": "regsync"
+      },
+      "outputs": ["{projectRoot}/dist"],
+      "inputs": [
+        "{projectRoot}/**/*",
+        "!{projectRoot}/dist/**",
+        "!{projectRoot}/node_modules/**"
+      ]
+    }
+  }
+}

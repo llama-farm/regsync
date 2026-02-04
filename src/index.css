@@ -1,0 +1,151 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Light mode - official/government aesthetic */
+    --background: 210 20% 98%;
+    --foreground: 215 25% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 215 25% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 25% 15%;
+    --primary: 215 50% 35%;
+    --primary-foreground: 210 20% 98%;
+    --secondary: 210 15% 93%;
+    --secondary-foreground: 215 25% 20%;
+    --muted: 210 15% 93%;
+    --muted-foreground: 215 15% 45%;
+    --accent: 210 15% 90%;
+    --accent-foreground: 215 25% 20%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 20% 98%;
+    --border: 210 15% 85%;
+    --input: 210 15% 85%;
+    --ring: 215 50% 35%;
+    --radius: 0.5rem;
+
+    /* Admin purple theme */
+    --admin-primary: 270 50% 50%;
+    --admin-primary-foreground: 0 0% 100%;
+  }
+
+  .dark {
+    /* Dark mode - slate blue government aesthetic */
+    --background: 215 35% 12%;
+    --foreground: 210 20% 95%;
+    --card: 215 30% 15%;
+    --card-foreground: 210 20% 95%;
+    --popover: 215 30% 15%;
+    --popover-foreground: 210 20% 95%;
+    --primary: 210 40% 75%;
+    --primary-foreground: 215 35% 12%;
+    --secondary: 215 30% 20%;
+    --secondary-foreground: 210 20% 90%;
+    --muted: 215 30% 18%;
+    --muted-foreground: 215 15% 60%;
+    --accent: 215 30% 22%;
+    --accent-foreground: 210 20% 95%;
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 210 20% 98%;
+    --border: 215 25% 25%;
+    --input: 215 25% 25%;
+    --ring: 210 40% 65%;
+
+    /* Admin purple theme (dark mode) */
+    --admin-primary: 270 60% 65%;
+    --admin-primary-foreground: 270 30% 10%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Typography */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  }
+
+  code, pre, kbd, samp {
+    font-family: 'IBM Plex Mono', monospace;
+  }
+}
+
+/* Typography utilities */
+@layer utilities {
+  .font-display {
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+    font-weight: 600;
+  }
+
+  .font-body {
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  }
+
+  /* Admin primary color utilities */
+  .text-admin-primary {
+    color: hsl(var(--admin-primary));
+  }
+  .bg-admin-primary {
+    background-color: hsl(var(--admin-primary));
+  }
+  .bg-admin-primary\/5 {
+    background-color: hsl(var(--admin-primary) / 0.05);
+  }
+  .bg-admin-primary\/10 {
+    background-color: hsl(var(--admin-primary) / 0.1);
+  }
+  .bg-admin-primary\/20 {
+    background-color: hsl(var(--admin-primary) / 0.2);
+  }
+  .border-admin-primary {
+    border-color: hsl(var(--admin-primary));
+  }
+  .border-admin-primary\/30 {
+    border-color: hsl(var(--admin-primary) / 0.3);
+  }
+  .border-admin-primary\/50 {
+    border-color: hsl(var(--admin-primary) / 0.5);
+  }
+  .ring-admin-primary\/20 {
+    --tw-ring-color: hsl(var(--admin-primary) / 0.2);
+  }
+}
+
+/* Custom scrollbar for dark mode */
+.dark ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: hsl(215 30% 15%);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: hsl(215 25% 35%);
+  border-radius: 4px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: hsl(215 25% 45%);
+}
+
+/* Prose styles for chat markdown */
+.prose {
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+}
+
+.prose code {
+  font-family: 'IBM Plex Mono', monospace;
+}
