@@ -5,13 +5,7 @@ export interface PolicyDocument {
   current_version_id: string
   created_at: string
   updated_at: string
-  // Optional fields for extended info
-  total_versions?: number
   created_by?: string
-  // Source indicates where the file came from
-  // 'document' = RegSync versioned document
-  // 'dataset' = LlamaFarm Designer upload
-  source?: 'document' | 'dataset'
 }
 
 export interface DocumentVersion {

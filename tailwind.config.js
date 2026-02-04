@@ -4,6 +4,12 @@ export default {
   darkMode: 'class',
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['IBM Plex Sans', 'system-ui', 'sans-serif'],
+        mono: ['IBM Plex Mono', 'monospace'],
+        display: ['IBM Plex Sans', 'system-ui', 'sans-serif'],
+        body: ['IBM Plex Sans', 'system-ui', 'sans-serif'],
+      },
       colors: {
         // Slate blue government palette
         'slate-blue': {
@@ -52,6 +58,11 @@ export default {
         card: {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
+        },
+        // Admin-specific purple theme
+        'admin-primary': {
+          DEFAULT: 'hsl(var(--admin-primary))',
+          foreground: 'hsl(var(--admin-primary-foreground))',
         },
       },
       borderRadius: {

@@ -1,24 +1,20 @@
 import { useState, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Upload, FileText, X, Loader2, CheckCircle, ArrowLeft, Calendar, User } from 'lucide-react'
+import { Upload, FileText, X, Loader2, CheckCircle, Calendar, Hash, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import type { PolicyDocument } from '@/types/document'
+import { documentsApi } from '@/api/documentsApi'
+import { useAuth } from '@/contexts/AuthContext'
 
 type UploadStatus = 'idle' | 'uploading' | 'processing' | 'success' | 'error'
-
-// Mock document data - will be replaced with API call
-const MOCK_DOCUMENTS: Record<string, { name: string; shortTitle: string; currentVersion: number; lastUpdated: string; updatedBy: string }> = {
-  '1': { name: 'Employee Handbook v2024', shortTitle: 'EMP-HB-2024', currentVersion: 2, lastUpdated: '2024-06-01', updatedBy: 'Capt. Sarah Mitchell' },
-  '2': { name: 'IT Security Policy', shortTitle: 'IT-SEC-001', currentVersion: 3, lastUpdated: '2025-01-09', updatedBy: 'Maj. Robert Chen' },
-  '3': { name: 'Travel & Expense Guidelines', shortTitle: 'FIN-TRV-001', currentVersion: 1, lastUpdated: '2024-03-10', updatedBy: 'Lt. Jennifer Walsh' },
-  '4': { name: 'Code of Conduct', shortTitle: 'HR-COC-001', currentVersion: 2, lastUpdated: '2024-12-15', updatedBy: 'Lt. Col. James Anderson' },
-}
 
 export function DocumentUpload() {
   const navigate = useNavigate()
   const location = useLocation()
-  const documentId = location.state?.documentId as string | undefined
-  const isUpdate = !!documentId
-  const existingDoc = documentId ? MOCK_DOCUMENTS[documentId] : null
+  const { user } = useAuth()
+  // Now receiving full document object instead of just ID
+  const document = location.state?.document as PolicyDocument | undefined
+  const isUpdate = !!document
 
   const [file, setFile] = useState<File | null>(null)
   const [name, setName] = useState('')
@@ -26,6 +22,7 @@ export function DocumentUpload() {
   const [notes, setNotes] = useState('')
   const [status, setStatus] = useState<UploadStatus>('idle')
   const [dragActive, setDragActive] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -68,35 +65,64 @@ export function DocumentUpload() {
     if (!file) return
 
     setStatus('uploading')
+    setErrorMessage(null)
 
-    // Simulate upload
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-    setStatus('processing')
+    try {
+      const uploadedBy = user?.name || 'Unknown'
 
-    // Simulate processing
-    await new Promise((resolve) => setTimeout(resolve, 2000))
-    setStatus('success')
+      if (isUpdate && document) {
+        // Upload new version of existing document
+        setStatus('uploading')
+        await documentsApi.uploadVersion(document.id, file, uploadedBy, notes || undefined)
+        setStatus('processing')
 
-    // Redirect after success
-    setTimeout(() => {
-      navigate('/admin')
-    }, 1500)
+        // Trigger change detection
+        // Note: This happens automatically on the server after upload
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+
+        setStatus('success')
+      } else {
+        // Create new document
+        setStatus('uploading')
+        await documentsApi.createDocument(
+          file,
+          name,
+          uploadedBy,
+          shortTitle || undefined,
+          notes || undefined
+        )
+        setStatus('processing')
+
+        // Document processing happens on the server
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+
+        setStatus('success')
+      }
+
+      // Redirect after success
+      setTimeout(() => {
+        navigate('/admin')
+      }, 1500)
+    } catch (err) {
+      console.error('Upload failed:', err)
+      setStatus('error')
+      setErrorMessage(err instanceof Error ? err.message : 'Upload failed. Make sure LlamaFarm server is running.')
+    }
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    })
   }
 
   return (
     <div className="max-w-2xl mx-auto">
-      {/* Back button */}
-      <button
-        onClick={() => navigate('/admin')}
-        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Back to Dashboard
-      </button>
-
       <div className="mb-6">
         <h1 className="text-2xl font-semibold font-display">
-          {isUpdate ? 'Update Document' : 'Upload New Document'}
+          {isUpdate ? 'Update Document' : 'Upload Document'}
         </h1>
         <p className="text-muted-foreground">
           {isUpdate
@@ -105,36 +131,31 @@ export function DocumentUpload() {
         </p>
       </div>
 
-      {/* Existing document info card (when updating) */}
-      {isUpdate && existingDoc && (
-        <div className="bg-admin-primary/5 border border-admin-primary/20 rounded-lg p-4 mb-6">
+      {/* Document info card when updating */}
+      {isUpdate && document && (
+        <div className="mb-6 bg-purple-500/5 border border-purple-500/20 rounded-lg p-4">
           <div className="flex items-start gap-3">
-            <div className="p-2 bg-admin-primary/10 rounded-lg">
-              <FileText className="w-5 h-5 text-admin-primary" />
+            <div className="p-2 bg-purple-500/10 rounded-lg">
+              <FileText className="w-5 h-5 text-purple-400" />
             </div>
             <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <h3 className="font-medium">{existingDoc.name}</h3>
-                <span className="text-xs font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                  {existingDoc.shortTitle}
-                </span>
-              </div>
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <h2 className="font-medium font-display text-lg">{document.name}</h2>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-muted-foreground">
+                {document.short_title && (
+                  <span className="flex items-center gap-1.5">
+                    <Hash className="w-3.5 h-3.5" />
+                    <span className="font-mono">{document.short_title}</span>
+                  </span>
+                )}
                 <span className="flex items-center gap-1.5">
                   <Calendar className="w-3.5 h-3.5" />
-                  Version {existingDoc.currentVersion} • Last updated {existingDoc.lastUpdated}
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <User className="w-3.5 h-3.5" />
-                  {existingDoc.updatedBy}
+                  Last updated {formatDate(document.updated_at)}
                 </span>
               </div>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Current version: <span className="font-mono">{document.current_version_id}</span>
+              </p>
             </div>
-          </div>
-          <div className="mt-3 pt-3 border-t border-admin-primary/20">
-            <p className="text-sm text-admin-primary">
-              Uploading will create Version {existingDoc.currentVersion + 1}
-            </p>
           </div>
         </div>
       )}
@@ -249,7 +270,7 @@ export function DocumentUpload() {
             'w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md font-medium transition-colors',
             status === 'success'
               ? 'bg-green-500 text-white'
-              : 'bg-primary text-primary-foreground hover:bg-primary/90',
+              : 'bg-purple-600 text-white hover:bg-purple-700',
             (!file || status !== 'idle') && status !== 'success' && 'opacity-50 cursor-not-allowed'
           )}
         >
@@ -279,6 +300,14 @@ export function DocumentUpload() {
           )}
           {status === 'error' && 'Error - Try again'}
         </button>
+
+        {/* Error message */}
+        {errorMessage && (
+          <div className="flex items-center gap-2 text-sm text-red-500 bg-red-500/10 px-3 py-2 rounded-md">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            {errorMessage}
+          </div>
+        )}
       </form>
     </div>
   )

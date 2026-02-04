@@ -1,9 +1,10 @@
 import { useAuth } from '@/contexts/AuthContext'
 import { Shield, Moon, Sun, RefreshCw, LogOut } from 'lucide-react'
 import { useState } from 'react'
+import { cn } from '@/lib/utils'
 
 export function Header() {
-  const { user, switchRole, isAdmin } = useAuth()
+  const { user, logout, isAdmin } = useAuth()
   const [isDark, setIsDark] = useState(true)
 
   const toggleTheme = () => {
@@ -15,12 +16,18 @@ export function Header() {
     <header className="h-14 border-b border-border bg-card px-4 flex items-center justify-between">
       {/* Logo */}
       <div className="flex items-center gap-3">
-        <div className={`flex items-center justify-center w-8 h-8 rounded ${isAdmin ? 'bg-admin-primary/10' : 'bg-primary/10'}`}>
-          <Shield className={`w-5 h-5 ${isAdmin ? 'text-admin-primary' : 'text-primary'}`} />
+        <div className={cn(
+          "flex items-center justify-center w-8 h-8 rounded",
+          isAdmin ? "bg-purple-500/10" : "bg-primary/10"
+        )}>
+          <Shield className={cn(
+            "w-5 h-5",
+            isAdmin ? "text-purple-500" : "text-primary"
+          )} />
         </div>
         <span className="font-semibold text-lg tracking-tight font-display">RegSync</span>
         {isAdmin && (
-          <span className="text-xs bg-admin-primary/10 text-admin-primary px-2 py-0.5 rounded font-medium">
+          <span className="text-xs font-medium px-2 py-0.5 rounded bg-purple-500/10 text-purple-400">
             Admin
           </span>
         )}
@@ -54,14 +61,13 @@ export function Header() {
           )}
         </button>
 
-        {/* User badge with sign out */}
+        {/* User badge */}
         {user && (
           <div className="flex items-center gap-2">
-            <div
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md ${
-                isAdmin ? 'bg-admin-primary/10' : 'bg-accent'
-              }`}
-            >
+            <div className={cn(
+              "flex items-center gap-2 px-3 py-1.5 rounded-md",
+              isAdmin ? "bg-purple-500/10" : "bg-accent"
+            )}>
               <div className="text-right">
                 <div className="text-sm font-medium">{user.name}</div>
                 <div className="text-xs text-muted-foreground">
@@ -69,17 +75,18 @@ export function Header() {
                 </div>
               </div>
               <div
-                className={`w-2 h-2 rounded-full ${
-                  isAdmin ? 'bg-purple-500' : 'bg-blue-500'
-                }`}
+                className={cn(
+                  "w-2 h-2 rounded-full",
+                  isAdmin ? "bg-purple-500" : "bg-primary"
+                )}
               />
             </div>
             <button
-              onClick={switchRole}
-              className="p-2 rounded-md hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
+              onClick={logout}
+              className="p-2 rounded-md hover:bg-accent transition-colors"
               title="Sign out"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-4 h-4 text-muted-foreground" />
             </button>
           </div>
         )}

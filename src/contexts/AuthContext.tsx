@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode, useCallback } from 'react'
+import { createContext, useContext, useState, ReactNode } from 'react'
 
 export type Role = 'admin' | 'user'
 
@@ -12,15 +12,11 @@ export interface User {
 interface AuthContextType {
   user: User | null
   isAdmin: boolean
-  isSignedIn: boolean
   login: (role: Role) => void
   logout: () => void
-  switchRole: () => void
-  showSignIn: boolean
-  setShowSignIn: (show: boolean) => void
 }
 
-const MOCK_USERS: Record<Role, User> = {
+export const MOCK_USERS: Record<Role, User> = {
   admin: {
     id: '1',
     name: 'Capt. Sarah Mitchell',
@@ -38,41 +34,16 @@ const MOCK_USERS: Record<Role, User> = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  // Start with null user to show sign-in screen
   const [user, setUser] = useState<User | null>(null)
-  const [showSignIn, setShowSignIn] = useState(true)
 
-  const login = useCallback((role: Role) => {
-    setUser(MOCK_USERS[role])
-    setShowSignIn(false)
-  }, [])
-
-  const logout = useCallback(() => {
-    setUser(null)
-    setShowSignIn(true)
-  }, [])
-
-  const switchRole = useCallback(() => {
-    // Show sign-in screen instead of direct switch
-    setShowSignIn(true)
-    setUser(null)
-  }, [])
+  const login = (role: Role) => setUser(MOCK_USERS[role])
+  const logout = () => setUser(null)
 
   const isAdmin = user?.role === 'admin'
-  const isSignedIn = user !== null
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isAdmin,
-        isSignedIn,
-        login,
-        logout,
-        switchRole,
-        showSignIn,
-        setShowSignIn,
-      }}
-    >
+    <AuthContext.Provider value={{ user, isAdmin, login, logout }}>
       {children}
     </AuthContext.Provider>
   )

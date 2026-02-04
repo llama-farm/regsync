@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -8,52 +9,58 @@ import {
   ChevronRight,
   User,
   Calendar,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { documentsApi } from '@/api/documentsApi'
+import type { DocumentVersion, PolicyDocument } from '@/types/document'
 
-interface Version {
-  id: string
-  version_number: number
-  uploaded_at: string
-  uploaded_by: string
-  notes: string
-  file_size: number
-  status: 'published' | 'draft'
-}
-
-// Mock data - will be replaced with API call
+// Fallback mock data
 const MOCK_DOCUMENT = {
   id: '1',
   name: 'Employee Handbook v2024',
   short_title: 'EMP-HB-2024',
 }
 
-const MOCK_VERSIONS: Version[] = [
+const MOCK_VERSIONS: DocumentVersion[] = [
   {
     id: 'v3',
+    document_id: '1',
     version_number: 3,
     uploaded_at: '2024-06-01T14:30:00Z',
     uploaded_by: 'Capt. Sarah Mitchell',
     notes: 'Updated remote work policy (reduced eligibility from 6 to 3 months), clarified dress code requirements',
     file_size: 2456789,
+    file_hash: '',
+    file_name: 'employee-handbook.pdf',
+    mime_type: 'application/pdf',
     status: 'published',
   },
   {
     id: 'v2',
+    document_id: '1',
     version_number: 2,
     uploaded_at: '2024-03-15T10:00:00Z',
     uploaded_by: 'Lt. Col. James Anderson',
     notes: 'Added section on mental health resources, updated PTO policy',
     file_size: 2234567,
+    file_hash: '',
+    file_name: 'employee-handbook.pdf',
+    mime_type: 'application/pdf',
     status: 'published',
   },
   {
     id: 'v1',
+    document_id: '1',
     version_number: 1,
     uploaded_at: '2024-01-15T10:00:00Z',
     uploaded_by: 'Capt. Sarah Mitchell',
     notes: 'Initial document upload',
     file_size: 2100000,
+    file_hash: '',
+    file_name: 'employee-handbook.pdf',
+    mime_type: 'application/pdf',
     status: 'published',
   },
 ]
@@ -61,6 +68,39 @@ const MOCK_VERSIONS: Version[] = [
 export function VersionHistory() {
   const { documentId } = useParams()
   const navigate = useNavigate()
+  const [document, setDocument] = useState<PolicyDocument | null>(null)
+  const [versions, setVersions] = useState<DocumentVersion[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [usingMockData, setUsingMockData] = useState(false)
+
+  useEffect(() => {
+    const loadData = async () => {
+      if (!documentId) return
+
+      try {
+        setLoading(true)
+        setError(null)
+
+        // Load document details with versions
+        const doc = await documentsApi.getDocument(documentId)
+        setDocument(doc)
+        setVersions(doc.versions || [])
+        setUsingMockData(false)
+      } catch (err) {
+        console.error('Failed to load document:', err)
+        // Fall back to mock data
+        setDocument(MOCK_DOCUMENT as unknown as PolicyDocument)
+        setVersions(MOCK_VERSIONS)
+        setUsingMockData(true)
+        setError('Using demo data - LlamaFarm server not connected')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadData()
+  }, [documentId])
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -87,8 +127,25 @@ export function VersionHistory() {
     console.log('View version:', versionId)
   }
 
+  // Loading state
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto flex items-center justify-center py-12">
+        <Loader2 className="w-8 h-8 animate-spin text-admin-primary" />
+      </div>
+    )
+  }
+
   return (
     <div className="max-w-4xl mx-auto">
+      {/* Connection status */}
+      {usingMockData && error && (
+        <div className="mb-4 flex items-center gap-2 text-sm text-amber-500 bg-amber-500/10 px-3 py-2 rounded-md">
+          <AlertCircle className="w-4 h-4" />
+          {error}
+        </div>
+      )}
+
       {/* Header */}
       <div className="mb-6">
         <button
@@ -105,14 +162,16 @@ export function VersionHistory() {
           </div>
           <div>
             <h1 className="text-2xl font-semibold font-display">
-              {MOCK_DOCUMENT.name}
+              {document?.name || 'Document'}
             </h1>
             <div className="flex items-center gap-3 mt-1">
-              <span className="text-sm font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded">
-                {MOCK_DOCUMENT.short_title}
-              </span>
+              {document?.short_title && (
+                <span className="text-sm font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                  {document.short_title}
+                </span>
+              )}
               <span className="text-sm text-muted-foreground">
-                {MOCK_VERSIONS.length} versions
+                {versions.length} version{versions.length !== 1 ? 's' : ''}
               </span>
             </div>
           </div>
@@ -132,7 +191,7 @@ export function VersionHistory() {
 
           {/* Versions */}
           <div className="space-y-4">
-            {MOCK_VERSIONS.map((version, index) => (
+            {versions.map((version, index) => (
               <div
                 key={version.id}
                 className={cn(

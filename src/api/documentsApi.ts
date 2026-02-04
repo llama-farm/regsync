@@ -1,5 +1,4 @@
 import { apiClient, projectUrl } from './client'
-import { datasetsApi, type DatasetFile } from './datasetsApi'
 import type {
   PolicyDocument,
   DocumentWithVersions,
@@ -37,66 +36,13 @@ interface CompareVersionsResponse {
   changes: ChangesSummary
 }
 
-// Convert a dataset file to a PolicyDocument for display
-function datasetFileToDocument(file: DatasetFile): PolicyDocument {
-  return {
-    id: file.file_hash,
-    name: file.original_filename,
-    short_title: file.original_filename.replace(/\.[^/.]+$/, ''),
-    current_version_id: file.file_hash,
-    total_versions: 1,
-    created_at: file.uploaded_at,
-    updated_at: file.uploaded_at,
-    created_by: 'LlamaFarm Designer',
-    // Mark as dataset file for UI differentiation
-    source: 'dataset' as const,
-  }
-}
-
 export const documentsApi = {
-  // List all documents (combines versioned documents + dataset files)
+  // List all documents
   async listDocuments(): Promise<ListDocumentsResponse> {
-    // Fetch both versioned documents and dataset files
-    const [docsResult, datasetFiles] = await Promise.all([
-      apiClient
-        .get<ListDocumentsResponse>(projectUrl('/documents/'))
-        .catch(() => ({ data: { total: 0, documents: [] } })),
-      datasetsApi.listFiles().catch(() => []),
-    ])
-
-    // Get versioned document IDs to avoid duplicates
-    const versionedDocIds = new Set(
-      docsResult.data.documents.map((d) => d.id)
-    )
-
-    // Convert dataset files that aren't already versioned documents
-    const datasetDocs = datasetFiles
-      .filter((f) => !versionedDocIds.has(f.file_hash))
-      .map(datasetFileToDocument)
-
-    // Combine and sort by updated_at
-    const allDocs = [...docsResult.data.documents, ...datasetDocs].sort(
-      (a, b) =>
-        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-    )
-
-    return {
-      total: allDocs.length,
-      documents: allDocs,
-    }
-  },
-
-  // List only versioned documents (original behavior)
-  async listVersionedDocuments(): Promise<ListDocumentsResponse> {
     const { data } = await apiClient.get<ListDocumentsResponse>(
       projectUrl('/documents/')
     )
     return data
-  },
-
-  // List files from dataset (LlamaFarm Designer uploads)
-  async listDatasetFiles(): Promise<DatasetFile[]> {
-    return datasetsApi.listFiles()
   },
 
   // Get a single document with all versions
@@ -108,7 +54,6 @@ export const documentsApi = {
   },
 
   // Create a new document with first version
-  // Also uploads to dataset for LlamaFarm Designer sync
   async createDocument(
     file: File,
     name: string,
@@ -116,15 +61,10 @@ export const documentsApi = {
     shortTitle?: string,
     notes?: string
   ): Promise<CreateDocumentResponse> {
-    // Upload to dataset first for Designer sync
-    const datasetResult = await datasetsApi.uploadFile(file)
-
-    // Then create versioned document
     const formData = new FormData()
     formData.append('file', file)
     formData.append('name', name)
     formData.append('uploaded_by', uploadedBy)
-    formData.append('file_hash', datasetResult.hash) // Link to dataset file
     if (shortTitle) formData.append('short_title', shortTitle)
     if (notes) formData.append('notes', notes)
 
@@ -133,10 +73,6 @@ export const documentsApi = {
       formData,
       { headers: { 'Content-Type': 'multipart/form-data' } }
     )
-
-    // Trigger dataset processing for RAG
-    datasetsApi.processDataset().catch(console.error)
-
     return data
   },
 
@@ -154,20 +90,15 @@ export const documentsApi = {
   },
 
   // Upload a new version
-  // Also uploads to dataset for LlamaFarm Designer sync
   async uploadVersion(
     documentId: string,
     file: File,
     uploadedBy: string,
     notes?: string
   ): Promise<UploadVersionResponse> {
-    // Upload to dataset first for Designer sync
-    const datasetResult = await datasetsApi.uploadFile(file)
-
     const formData = new FormData()
     formData.append('file', file)
     formData.append('uploaded_by', uploadedBy)
-    formData.append('file_hash', datasetResult.hash) // Link to dataset file
     if (notes) formData.append('notes', notes)
 
     const { data } = await apiClient.post<UploadVersionResponse>(
@@ -175,10 +106,6 @@ export const documentsApi = {
       formData,
       { headers: { 'Content-Type': 'multipart/form-data' } }
     )
-
-    // Trigger dataset processing for RAG
-    datasetsApi.processDataset().catch(console.error)
-
     return data
   },
 

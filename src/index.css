@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -27,9 +25,8 @@
     --input: 210 15% 85%;
     --ring: 215 50% 35%;
     --radius: 0.5rem;
-
-    /* Admin purple theme */
-    --admin-primary: 270 50% 50%;
+    /* Admin theme variables */
+    --admin-primary: 265 50% 45%;
     --admin-primary-foreground: 0 0% 100%;
   }
 
@@ -54,10 +51,24 @@
     --border: 215 25% 25%;
     --input: 215 25% 25%;
     --ring: 210 40% 65%;
+    /* Admin theme variables */
+    --admin-primary: 265 70% 65%;
+    --admin-primary-foreground: 265 35% 12%;
+  }
 
-    /* Admin purple theme (dark mode) */
-    --admin-primary: 270 60% 65%;
-    --admin-primary-foreground: 270 30% 10%;
+  /* Admin mode - override primary color with purple */
+  .dark.admin {
+    --primary: 265 70% 65%;
+    --primary-foreground: 265 20% 15%;
+    --ring: 265 60% 55%;
+    --accent: 265 30% 22%;
+  }
+
+  .admin {
+    --primary: 265 60% 50%;
+    --primary-foreground: 0 0% 100%;
+    --ring: 265 50% 45%;
+    --accent: 265 30% 90%;
   }
 }
 
@@ -66,59 +77,8 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
-    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+    @apply bg-background text-foreground font-sans;
     font-feature-settings: "rlig" 1, "calt" 1;
-  }
-
-  /* Typography */
-  h1, h2, h3, h4, h5, h6 {
-    font-family: 'IBM Plex Sans', system-ui, sans-serif;
-  }
-
-  code, pre, kbd, samp {
-    font-family: 'IBM Plex Mono', monospace;
-  }
-}
-
-/* Typography utilities */
-@layer utilities {
-  .font-display {
-    font-family: 'IBM Plex Sans', system-ui, sans-serif;
-    font-weight: 600;
-  }
-
-  .font-body {
-    font-family: 'IBM Plex Sans', system-ui, sans-serif;
-  }
-
-  /* Admin primary color utilities */
-  .text-admin-primary {
-    color: hsl(var(--admin-primary));
-  }
-  .bg-admin-primary {
-    background-color: hsl(var(--admin-primary));
-  }
-  .bg-admin-primary\/5 {
-    background-color: hsl(var(--admin-primary) / 0.05);
-  }
-  .bg-admin-primary\/10 {
-    background-color: hsl(var(--admin-primary) / 0.1);
-  }
-  .bg-admin-primary\/20 {
-    background-color: hsl(var(--admin-primary) / 0.2);
-  }
-  .border-admin-primary {
-    border-color: hsl(var(--admin-primary));
-  }
-  .border-admin-primary\/30 {
-    border-color: hsl(var(--admin-primary) / 0.3);
-  }
-  .border-admin-primary\/50 {
-    border-color: hsl(var(--admin-primary) / 0.5);
-  }
-  .ring-admin-primary\/20 {
-    --tw-ring-color: hsl(var(--admin-primary) / 0.2);
   }
 }
 
@@ -139,13 +99,4 @@
 
 .dark ::-webkit-scrollbar-thumb:hover {
   background: hsl(215 25% 45%);
-}
-
-/* Prose styles for chat markdown */
-.prose {
-  font-family: 'IBM Plex Sans', system-ui, sans-serif;
-}
-
-.prose code {
-  font-family: 'IBM Plex Mono', monospace;
 }

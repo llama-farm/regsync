@@ -2,49 +2,9 @@ import { useState, useRef, useEffect } from 'react'
 import { Send, Loader2, FileText, Clock, ArrowRight, Search } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { cn } from '@/lib/utils'
-import type { ChatMessage, CitedSource } from '@/types/chat'
+import type { ChatMessage } from '@/types/chat'
 import { SourceCard } from './SourceCard'
-
-// Mock response - will be replaced with API call
-const generateMockResponse = (query: string): { answer: string; sources: CitedSource[] } => {
-  return {
-    answer: `Based on the current policy documents, here's what I found regarding your question about "${query}":
-
-**Remote Work Eligibility**
-Employees must have completed 3 months of employment and demonstrated satisfactory performance to be eligible for remote work arrangements. Remote work requests require manager approval.
-
-**Key Requirements:**
-- Minimum 3 months employment
-- Satisfactory performance record
-- Manager approval required
-- Secure home office setup
-- Reliable internet connection
-
-The policy was updated on June 1, 2024 to reduce the eligibility period from 6 months to 3 months.`,
-    sources: [
-      {
-        content: 'Employees must have completed 3 months of employment and demonstrated satisfactory performance to be eligible for remote work arrangements.',
-        score: 0.92,
-        metadata: { source: 'employee-handbook.pdf' },
-        document_id: '1',
-        version_id: 'v2',
-        section: 'Section 4.2 - Remote Work Policy',
-        updated_at: '2024-06-01T14:30:00Z',
-        updated_by: 'Capt. Sarah Mitchell',
-      },
-      {
-        content: 'Remote work requests must be submitted through the HR portal and require direct manager approval within 5 business days.',
-        score: 0.85,
-        metadata: { source: 'employee-handbook.pdf' },
-        document_id: '1',
-        version_id: 'v2',
-        section: 'Section 4.2.3 - Request Process',
-        updated_at: '2024-06-01T14:30:00Z',
-        updated_by: 'Capt. Sarah Mitchell',
-      },
-    ],
-  }
-}
+import { chatApi } from '@/api/chatApi'
 
 interface RecentUpdate {
   id: string
@@ -103,21 +63,48 @@ export function PolicyAssistant() {
     setInput('')
     setIsLoading(true)
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500))
+    try {
+      // Build conversation history for context
+      const conversationHistory = messages.map((m) => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+      }))
 
-    const response = generateMockResponse(query)
+      // Call LlamaFarm RAG-augmented chat API
+      const response = await chatApi.chat(
+        [
+          ...conversationHistory,
+          { role: 'user' as const, content: query },
+        ],
+        {
+          ragEnabled: true,
+          database: 'policies',
+        }
+      )
 
-    const assistantMessage: ChatMessage = {
-      id: (Date.now() + 1).toString(),
-      role: 'assistant',
-      content: response.answer,
-      sources: response.sources,
-      timestamp: new Date().toISOString(),
+      const assistantMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: response.answer,
+        sources: response.sources,
+        timestamp: new Date().toISOString(),
+      }
+
+      setMessages((prev) => [...prev, assistantMessage])
+    } catch (err) {
+      console.error('Chat API error:', err)
+
+      // Add error message to chat
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: 'Sorry, I encountered an error while searching the policy documents. Please make sure LlamaFarm is running and try again.',
+        timestamp: new Date().toISOString(),
+      }
+      setMessages((prev) => [...prev, errorMessage])
+    } finally {
+      setIsLoading(false)
     }
-
-    setMessages((prev) => [...prev, assistantMessage])
-    setIsLoading(false)
   }
 
   const handleSubmit = (e: React.FormEvent) => {

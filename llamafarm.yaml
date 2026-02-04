@@ -1,0 +1,35 @@
+# RegSync - Policy Document Management System
+# LlamaFarm project configuration
+
+namespace: default
+project: regsync
+
+# RAG configuration for policy document search
+rag:
+  enabled: true
+  database: policies
+  embedding_model: sentence-transformers/all-MiniLM-L6-v2
+  chunk_size: 512
+  chunk_overlap: 50
+  retrieval_strategy: semantic
+
+# Dataset for policy documents
+datasets:
+  policies:
+    auto_process: true
+    data_processing_strategy: chunked
+    database: policies
+
+# Chat configuration with RAG augmentation
+chat:
+  enabled: true
+  model: llama3.2:3b
+  system_prompt: |
+    You are a helpful policy assistant for RegSync, a policy document management system.
+    Answer questions about policy documents based on the provided context.
+    Always cite the specific document and section when providing information.
+    If you don't find relevant information in the context, say so clearly.
+  rag_enabled: true
+  rag_database: policies
+  rag_top_k: 5
+  rag_score_threshold: 0.5
