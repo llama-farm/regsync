@@ -19,14 +19,14 @@ export default defineConfig({
         secure: false,
         rewrite: () => '/health',
       },
-      // Document management goes to local server
-      '/api/projects': {
+      // Document management (CRUD) goes to local server on 3001
+      '/api/projects/default/regsync/documents': {
         target: 'http://localhost:3001',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/api/, '/v1'),
       },
-      // Chat/RAG calls go to LlamaFarm
+      // Everything else (chat, RAG, datasets) goes to LlamaFarm
       '/api': {
         target: process.env.API_URL || 'http://localhost:14345',
         changeOrigin: true,
