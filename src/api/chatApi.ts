@@ -39,6 +39,27 @@ interface ChatMessage {
   content: string
 }
 
+// System prompt to help with military terminology and policy interpretation
+const POLICY_SYSTEM_PROMPT = `You are a policy assistant for the 73rd Medical Wing. Your role is to help personnel understand Air Force regulations and local policies.
+
+When answering questions:
+1. Use the retrieved document context to provide accurate, specific answers
+2. Cite the relevant section or paragraph when possible
+3. If the context doesn't contain the answer, say so clearly
+4. Use clear, concise language appropriate for military personnel
+
+Military terminology reference:
+- PCS (Permanent Change of Station) - when someone transfers to a new base
+- TDY (Temporary Duty) - short-term assignments away from home station
+- CRO (Change of Reporting Official) - when a rater or supervisor changes
+- OPR (Officer Performance Report) - officer evaluations
+- EPR (Enlisted Performance Report) - enlisted evaluations
+- Rater - the supervisor who writes the evaluation
+- Additional Rater - secondary evaluator, typically the rater's supervisor
+- Close-out date - the end date of an evaluation period
+
+When a user asks about a "rater PCS'ing" or "supervisor leaving", they are asking about Change of Reporting Official (CRO) procedures.`
+
 interface ChatCompletionResponse {
   id: string
   object: string
@@ -92,20 +113,29 @@ export const chatApi = {
   }> {
     const ragEnabled = options?.ragEnabled ?? true
 
+    // Prepend system prompt if not already present
+    const hasSystemPrompt = messages.some(m => m.role === 'system')
+    const messagesWithSystem = hasSystemPrompt
+      ? messages
+      : [{ role: 'system' as const, content: POLICY_SYSTEM_PROMPT }, ...messages]
+
     const { data } = await apiClient.post<ChatCompletionResponse>(
       projectUrl('/chat/completions'),
       {
-        messages,
+        messages: messagesWithSystem,
         max_tokens: options?.maxTokens || 1024,
         temperature: options?.temperature || 0.7,
-        // Use nested rag object format expected by LlamaFarm
+        // LlamaFarm expects flat RAG parameters (not nested rag object)
+        // hybrid retrieval combines semantic (embeddings) with BM25 (keyword) search
+        // for better coverage of military acronyms and terminology
         ...(ragEnabled && {
-          rag: {
-            database: options?.database || DATASET,
-            top_k: 5,
-            embedding_strategy: EMBEDDING_STRATEGY,
-          }
-        })
+          rag_enabled: true,
+          database: options?.database || DATASET,
+          rag_top_k: 8,
+          rag_retrieval_strategy: 'hybrid',
+        }),
+        // Request RAG sources to be included in response
+        include_sources: ragEnabled,
       }
     )
 
@@ -126,12 +156,13 @@ export const chatApi = {
   },
 
   // Search documents (RAG query wrapper for simple searches)
-  async search(query: string, topK = 5): Promise<CitedSource[]> {
+  // Uses hybrid retrieval for better keyword + semantic matching
+  async search(query: string, topK = 8): Promise<CitedSource[]> {
     const response = await this.ragQuery({
       query,
       database: DATASET,
       top_k: topK,
-      retrieval_strategy: 'semantic',
+      retrieval_strategy: 'hybrid',
       embedding_strategy: EMBEDDING_STRATEGY,
     })
 
