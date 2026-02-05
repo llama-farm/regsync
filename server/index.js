@@ -12,7 +12,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { createRequire } from 'module'
 const require = createRequire(import.meta.url)
-const pdfParse = require('pdf-parse')
+const { PDFParse } = require('pdf-parse')
 import { diffLines } from 'diff'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -22,7 +22,7 @@ const app = express()
 const PORT = 3001
 
 // LlamaFarm configuration
-const LLAMAFARM_URL = process.env.LLAMAFARM_URL || 'http://localhost:8000'
+const LLAMAFARM_URL = process.env.LLAMAFARM_URL || 'http://localhost:14345'
 const LLAMAFARM_NAMESPACE = 'default'
 const LLAMAFARM_PROJECT = 'regsync'
 const LLAMAFARM_DATASET = 'policies'
@@ -427,12 +427,17 @@ app.delete('/v1/projects/:namespace/:project/documents/:documentId', (req, res) 
   res.json({ message: 'Document deleted' })
 })
 
-// Extract text from PDF file
+// Extract text from PDF file (using pdf-parse v2.x API)
 async function extractPdfText(filePath) {
   try {
     const dataBuffer = fs.readFileSync(filePath)
-    const data = await pdfParse(dataBuffer)
-    return data.text
+    const uint8Array = new Uint8Array(dataBuffer)
+    const parser = new PDFParse(uint8Array)
+    await parser.load()
+    const result = await parser.getText()
+    // getText() returns { pages: [{ text: string }, ...] }
+    const texts = result.pages.map(page => page.text).filter(Boolean)
+    return texts.join('\n\n')
   } catch (error) {
     console.error('PDF extraction error:', error.message)
     return null

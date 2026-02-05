@@ -3,7 +3,7 @@
  * Used for health checks and future direct AI features
  */
 
-const LLAMAFARM_URL = 'http://localhost:8000'
+const LLAMAFARM_URL = 'http://localhost:14345'
 const NAMESPACE = 'default'
 const PROJECT = 'regsync'
 

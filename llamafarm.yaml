@@ -9,14 +9,12 @@ namespace: default
 runtime:
   models:
     - name: default
-      description: "Policy assistant model - Qwen 2.5 3B"
+      description: Policy assistant model - Qwen 3 4B
       provider: ollama
-      model: qwen2.5:3b
+      model: qwen3:4b
       base_url: http://localhost:11434
       default: true
       prompt_format: unstructured
-
-# System prompt for policy assistant
 prompts:
   - name: default
     messages:
@@ -48,8 +46,6 @@ prompts:
           - Use standard military date format when relevant
 
           Remember: Your users are busy Air Force professionals. Give them what they need efficiently.
-
-# RAG configuration for policy document search
 rag:
   databases:
     - name: policies
@@ -78,42 +74,40 @@ rag:
           default: true
       default_embedding_strategy: default_embeddings
       default_retrieval_strategy: semantic_search
-
   data_processing_strategies:
     - name: policy_processor
       description: Parser for policy PDF documents
       parsers:
         - type: PDFParser_LlamaIndex
-          file_include_patterns:
-            - "*.pdf"
-            - "*.PDF"
-          priority: 100
           config:
             chunk_size: 512
             chunk_overlap: 50
             chunk_strategy: semantic
             extract_metadata: true
-        - type: PDFParser_PyPDF2
           file_include_patterns:
-            - "*.pdf"
-            - "*.PDF"
-          priority: 50
+            - '*.pdf'
+            - '*.PDF'
+          priority: 100
+        - type: PDFParser_PyPDF2
           config:
             chunk_size: 500
             chunk_overlap: 50
             chunk_strategy: paragraphs
             extract_metadata: true
+          file_include_patterns:
+            - '*.pdf'
+            - '*.PDF'
+          priority: 50
       extractors:
         - type: ContentStatisticsExtractor
-          file_include_patterns:
-            - "*"
-          priority: 100
           config:
             include_readability: true
             include_structure: true
-
-# Dataset for policy documents
+          file_include_patterns:
+            - '*'
+          priority: 100
 datasets:
   - name: policies
+    auto_process: true
     data_processing_strategy: policy_processor
     database: policies

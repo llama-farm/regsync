@@ -187,7 +187,7 @@ export async function getDocumentChanges(
  */
 export async function checkLlamaFarmStatus(): Promise<boolean> {
   try {
-    const response = await fetch('http://localhost:8000/health', {
+    const response = await fetch('http://localhost:14345/health', {
       method: 'GET',
       signal: AbortSignal.timeout(3000)
     })
