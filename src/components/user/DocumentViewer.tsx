@@ -1,6 +1,20 @@
-import { X, FileText, ExternalLink } from 'lucide-react'
+import { X, FileText, ExternalLink, Calendar, User } from 'lucide-react'
 import type { CitedSource } from '@/types/chat'
 import { cn } from '@/lib/utils'
+
+// Format date for display
+function formatDate(dateString?: string): string | null {
+  if (!dateString) return null
+  try {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    })
+  } catch {
+    return null
+  }
+}
 
 interface DocumentViewerProps {
   source: CitedSource
@@ -39,7 +53,7 @@ export function DocumentViewer({ source, onClose }: DocumentViewerProps) {
             <FileText className="w-5 h-5 text-primary flex-shrink-0" />
             <div className="min-w-0">
               <h2 className="font-semibold truncate">{documentName}</h2>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                 {source.section && (
                   <span>{source.section}</span>
                 )}
@@ -55,6 +69,22 @@ export function DocumentViewer({ source, onClose }: DocumentViewerProps) {
                   </span>
                 )}
               </div>
+              {(source.updated_at || source.updated_by) && (
+                <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                  {formatDate(source.updated_at) && (
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-3 h-3" />
+                      {formatDate(source.updated_at)}
+                    </span>
+                  )}
+                  {source.updated_by && (
+                    <span className="flex items-center gap-1">
+                      <User className="w-3 h-3" />
+                      {source.updated_by}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
           <button
@@ -102,6 +132,18 @@ export function DocumentViewer({ source, onClose }: DocumentViewerProps) {
                   <div className="flex items-center gap-2">
                     <span className="font-medium">Relevance Score:</span>
                     <span>{confidencePercent}%</span>
+                  </div>
+                )}
+                {formatDate(source.updated_at) && (
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">Updated:</span>
+                    <span>{formatDate(source.updated_at)}</span>
+                  </div>
+                )}
+                {source.updated_by && (
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">Updated By:</span>
+                    <span>{source.updated_by}</span>
                   </div>
                 )}
               </div>

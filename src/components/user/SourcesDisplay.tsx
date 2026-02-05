@@ -1,7 +1,21 @@
 import { useState } from 'react'
-import { FileText, ChevronDown, ChevronRight, ExternalLink, Eye, Hash } from 'lucide-react'
+import { FileText, ChevronDown, ChevronRight, ExternalLink, Eye, Hash, Calendar, User } from 'lucide-react'
 import type { CitedSource } from '@/types/chat'
 import { cn } from '@/lib/utils'
+
+// Format date for display
+function formatDate(dateString?: string): string | null {
+  if (!dateString) return null
+  try {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    })
+  } catch {
+    return null
+  }
+}
 
 interface SourcesDisplayProps {
   sources: CitedSource[]
@@ -82,7 +96,25 @@ export function SourcesDisplay({ sources, onViewDocument }: SourcesDisplayProps)
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     <FileText className="w-4 h-4 text-primary flex-shrink-0" />
-                    <span className="font-medium text-sm truncate">{docName}</span>
+                    <div className="min-w-0">
+                      <span className="font-medium text-sm truncate block">{docName}</span>
+                      {(chunks[0].updated_at || chunks[0].updated_by) && (
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                          {formatDate(chunks[0].updated_at) && (
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              {formatDate(chunks[0].updated_at)}
+                            </span>
+                          )}
+                          {chunks[0].updated_by && (
+                            <span className="flex items-center gap-1">
+                              <User className="w-3 h-3" />
+                              {chunks[0].updated_by}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-2 flex-shrink-0">
