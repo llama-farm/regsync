@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Loader2, FileText, Clock, ArrowRight, Search, ThumbsUp, ThumbsDown, MessageSquare, Printer, AlertCircle, HelpCircle } from 'lucide-react'
+import { Send, Loader2, FileText, Clock, ArrowRight, Search, ThumbsUp, ThumbsDown, MessageSquare, Printer, AlertCircle, HelpCircle, Plus } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { cn } from '@/lib/utils'
 import type { ChatMessage, CitedSource } from '@/types/chat'
@@ -285,6 +285,16 @@ export function PolicyAssistant() {
     handleSend()
   }
 
+  const handleClear = () => {
+    setMessages([])
+    setFeedback({})
+    // Clear from localStorage
+    if (user) {
+      const storageKey = `${CHAT_STORAGE_KEY}_${user.role}`
+      localStorage.removeItem(storageKey)
+    }
+  }
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleDateString('en-US', {
@@ -298,6 +308,23 @@ export function PolicyAssistant() {
 
   return (
     <div className="flex flex-col h-full">
+      {/* Compact header - Policy Assistant title + New chat button */}
+      {hasMessages && (
+        <div className="border-b border-border bg-background px-4 py-1.5">
+          <div className="max-w-3xl mx-auto flex items-center justify-between">
+            <span className="text-sm font-medium">Policy Assistant</span>
+            <button
+              onClick={handleClear}
+              disabled={isLoading}
+              className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors disabled:opacity-50"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              New chat
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Main content area */}
       <div className="flex-1 overflow-auto">
         {!hasMessages ? (

@@ -33,12 +33,21 @@ export const MOCK_USERS: Record<Role, User> = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+// Chat storage key - must match PolicyAssistant
+const CHAT_STORAGE_KEY = 'regsync_chat_history'
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   // Start with null user to show sign-in screen
   const [user, setUser] = useState<User | null>(null)
 
   const login = (role: Role) => setUser(MOCK_USERS[role])
-  const logout = () => setUser(null)
+
+  const logout = () => {
+    // Clear chat history for both roles on logout
+    localStorage.removeItem(`${CHAT_STORAGE_KEY}_admin`)
+    localStorage.removeItem(`${CHAT_STORAGE_KEY}_user`)
+    setUser(null)
+  }
 
   const isAdmin = user?.role === 'admin'
 
