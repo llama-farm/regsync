@@ -444,7 +444,7 @@ export function PolicyAssistant() {
           </div>
         ) : (
           /* Chat messages */
-          <div className="max-w-3xl mx-auto px-4 py-4">
+          <div className="max-w-3xl mx-auto px-4 py-2">
             <div className="space-y-6">
               {messages.map((message, msgIndex) => (
                 <div key={message.id}>
@@ -485,7 +485,7 @@ export function PolicyAssistant() {
                               </span>
                             </div>
                           )}
-                          <div className="prose prose-sm dark:prose-invert max-w-none font-body prose-p:my-4 prose-headings:mt-6 prose-headings:mb-3 prose-ul:my-4 prose-li:my-2 prose-strong:font-semibold [&>p:first-child]:mt-0 leading-relaxed">
+                          <div className="prose prose-sm dark:prose-invert max-w-none font-body prose-p:my-5 prose-headings:mt-6 prose-headings:mb-2 prose-ul:my-3 prose-li:my-0.5 prose-strong:font-semibold [&>p:first-child]:mt-0">
                             <ReactMarkdown>{message.content}</ReactMarkdown>
                           </div>
 
