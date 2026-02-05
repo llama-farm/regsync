@@ -7,41 +7,48 @@ import { DocumentUpload } from './components/admin/DocumentUpload'
 import { VersionHistory } from './components/admin/VersionHistory'
 import { PolicyAssistant } from './components/user/PolicyAssistant'
 import { DocumentsList } from './components/shared/DocumentsList'
-import { SignInScreen } from './components/auth/SignInScreen'
 import { useAuth } from './contexts/AuthContext'
 
-// Wrapper component that handles navigation after sign-in
-function AuthenticatedApp() {
-  const { user, isAdmin } = useAuth()
-  const navigate = useNavigate()
-  const prevUserRef = useRef<string | null>(null)
+// Protected route wrapper for admin-only routes
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { isAdmin } = useAuth()
 
-  // Navigate to default page when user changes (sign-in)
+  if (!isAdmin) {
+    return <Navigate to="/" replace />
+  }
+
+  return <>{children}</>
+}
+
+// Main app with routing
+function AppRoutes() {
+  const { isAuthenticated, isAdmin } = useAuth()
+  const navigate = useNavigate()
+  const wasAuthenticatedRef = useRef(isAuthenticated)
+
+  // Navigate to admin dashboard when admin signs in
   useEffect(() => {
-    if (user && user.id !== prevUserRef.current) {
-      // New user signed in - navigate to their default page
-      const defaultPath = isAdmin ? '/admin' : '/assistant'
-      navigate(defaultPath, { replace: true })
+    if (isAuthenticated && !wasAuthenticatedRef.current) {
+      // Just signed in as admin - go to admin dashboard
+      navigate('/admin', { replace: true })
+    } else if (!isAuthenticated && wasAuthenticatedRef.current) {
+      // Just logged out - go to assistant
+      navigate('/', { replace: true })
     }
-    prevUserRef.current = user?.id || null
-  }, [user, isAdmin, navigate])
+    wasAuthenticatedRef.current = isAuthenticated
+  }, [isAuthenticated, navigate])
 
   return (
     <AppShell>
       <Routes>
-        {/* Default route redirects based on role */}
-        <Route
-          path="/"
-          element={<Navigate to={isAdmin ? '/admin' : '/assistant'} replace />}
-        />
-
-        {/* Admin routes */}
-        <Route path="/admin" element={<AdminDashboard />} />
-        <Route path="/upload" element={<DocumentUpload />} />
-        <Route path="/history/:documentId" element={<VersionHistory />} />
-
-        {/* User routes - PolicyAssistant combines dashboard + chat */}
+        {/* Default route - Policy Assistant for everyone */}
+        <Route path="/" element={<PolicyAssistant />} />
         <Route path="/assistant" element={<PolicyAssistant />} />
+
+        {/* Admin routes - protected */}
+        <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+        <Route path="/upload" element={<AdminRoute><DocumentUpload /></AdminRoute>} />
+        <Route path="/history/:documentId" element={<AdminRoute><VersionHistory /></AdminRoute>} />
 
         {/* Shared routes */}
         <Route path="/documents" element={<DocumentsList />} />
@@ -54,13 +61,6 @@ function AuthenticatedApp() {
 }
 
 function App() {
-  const { user, login } = useAuth()
-
-  // Show sign-in screen if not logged in
-  if (!user) {
-    return <SignInScreen onSignIn={login} />
-  }
-
   return (
     <>
       <Toaster
@@ -71,7 +71,7 @@ function App() {
           className: 'font-body',
         }}
       />
-      <AuthenticatedApp />
+      <AppRoutes />
     </>
   )
 }

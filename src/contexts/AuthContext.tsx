@@ -1,63 +1,45 @@
 import { createContext, useContext, useState, ReactNode } from 'react'
 
-export type Role = 'admin' | 'user'
-
-export interface User {
+export interface AdminUser {
   id: string
   name: string
-  role: Role
-  title?: string
+  title: string
 }
 
 interface AuthContextType {
-  user: User | null
+  isAuthenticated: boolean
   isAdmin: boolean
-  login: (role: Role) => void
+  adminUser: AdminUser | null
+  login: () => void
   logout: () => void
 }
 
-export const MOCK_USERS: Record<Role, User> = {
-  admin: {
-    id: '1',
-    name: 'Capt. Sarah Mitchell',
-    role: 'admin',
-    title: 'Policy Administrator',
-  },
-  user: {
-    id: '2',
-    name: 'TSgt. James Thompson',
-    role: 'user',
-    title: 'Personnel Specialist',
-  },
+// Mock admin user for demo
+const ADMIN_USER: AdminUser = {
+  id: '1',
+  name: 'Capt. Sarah Mitchell',
+  title: 'Policy Administrator',
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-// Chat storage key - must match PolicyAssistant
-const CHAT_STORAGE_KEY = 'regsync_chat_history'
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // Start with null user to show sign-in screen
-  const [user, setUser] = useState<User | null>(null)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
 
-  const login = (role: Role) => {
-    // Clear chat history on each sign-in for fresh start
-    localStorage.removeItem(`${CHAT_STORAGE_KEY}_admin`)
-    localStorage.removeItem(`${CHAT_STORAGE_KEY}_user`)
-    setUser(MOCK_USERS[role])
+  const login = () => {
+    setIsAuthenticated(true)
   }
 
   const logout = () => {
-    // Clear chat history for both roles on logout
-    localStorage.removeItem(`${CHAT_STORAGE_KEY}_admin`)
-    localStorage.removeItem(`${CHAT_STORAGE_KEY}_user`)
-    setUser(null)
+    setIsAuthenticated(false)
   }
 
-  const isAdmin = user?.role === 'admin'
+  // Only authenticated users are admins (no regular user login anymore)
+  const isAdmin = isAuthenticated
+  const adminUser = isAuthenticated ? ADMIN_USER : null
 
   return (
-    <AuthContext.Provider value={{ user, isAdmin, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, isAdmin, adminUser, login, logout }}>
       {children}
     </AuthContext.Provider>
   )

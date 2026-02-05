@@ -56,9 +56,9 @@ export function Sidebar() {
           adminOnly
         />
 
-        {/* Policy Assistant - available to all users */}
+        {/* Policy Assistant - available to all users (active on / and /assistant) */}
         <NavItem
-          to="/assistant"
+          to="/"
           icon={<MessageSquare className="w-4 h-4" />}
           label="Policy Assistant"
         />

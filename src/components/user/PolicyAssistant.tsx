@@ -7,7 +7,6 @@ import { SourcesDisplay } from './SourcesDisplay'
 import { DocumentViewer } from './DocumentViewer'
 import { chatApi } from '@/api/chatApi'
 import { documentsApi } from '@/api/documentsApi'
-import { useAuth } from '@/contexts/AuthContext'
 
 // Storage key for chat history (per role)
 const CHAT_STORAGE_KEY = 'regsync_chat_history'
@@ -61,7 +60,6 @@ const getRelatedQuestions = (query: string): string[] => {
 }
 
 export function PolicyAssistant() {
-  const { user } = useAuth()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -72,10 +70,8 @@ export function PolicyAssistant() {
 
   // Load chat history from localStorage on mount
   useEffect(() => {
-    if (!user) return
-    const storageKey = `${CHAT_STORAGE_KEY}_${user.role}`
     try {
-      const saved = localStorage.getItem(storageKey)
+      const saved = localStorage.getItem(CHAT_STORAGE_KEY)
       if (saved) {
         const parsed = JSON.parse(saved)
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -85,18 +81,17 @@ export function PolicyAssistant() {
     } catch (err) {
       console.error('Failed to load chat history:', err)
     }
-  }, [user])
+  }, [])
 
   // Save chat history to localStorage when messages change
   useEffect(() => {
-    if (!user || messages.length === 0) return
-    const storageKey = `${CHAT_STORAGE_KEY}_${user.role}`
+    if (messages.length === 0) return
     try {
-      localStorage.setItem(storageKey, JSON.stringify(messages))
+      localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages))
     } catch (err) {
       console.error('Failed to save chat history:', err)
     }
-  }, [messages, user])
+  }, [messages])
 
   // Fetch recent document updates from API
   useEffect(() => {
@@ -295,10 +290,7 @@ export function PolicyAssistant() {
     setMessages([])
     setFeedback({})
     // Clear from localStorage
-    if (user) {
-      const storageKey = `${CHAT_STORAGE_KEY}_${user.role}`
-      localStorage.removeItem(storageKey)
-    }
+    localStorage.removeItem(CHAT_STORAGE_KEY)
   }
 
   const formatDate = (dateString: string) => {

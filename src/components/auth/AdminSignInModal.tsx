@@ -1,36 +1,31 @@
 import { useState } from 'react'
-import { Shield, Loader2, CreditCard } from 'lucide-react'
-import type { Role } from '@/contexts/AuthContext'
+import { Shield, Loader2, CreditCard, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-interface SignInScreenProps {
-  onSignIn: (role: Role) => void
+interface AdminSignInModalProps {
+  isOpen: boolean
+  onClose: () => void
+  onSignIn: () => void
 }
 
-// Fake credentials for demo
-const DEMO_USERS = {
-  user: {
-    email: 'james.thompson@us.af.mil',
-    name: 'TSgt. James Thompson',
-  },
-  admin: {
-    email: 'sarah.mitchell@us.af.mil',
-    name: 'Capt. Sarah Mitchell',
-  },
+// Demo admin credentials
+const ADMIN_USER = {
+  email: 'sarah.mitchell@us.af.mil',
+  name: 'Capt. Sarah Mitchell',
 }
 
-export function SignInScreen({ onSignIn }: SignInScreenProps) {
-  const [selectedRole, setSelectedRole] = useState<Role>('user')
+export function AdminSignInModal({ isOpen, onClose, onSignIn }: AdminSignInModalProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [password, setPassword] = useState('••••••••••••')
 
-  const currentUser = DEMO_USERS[selectedRole]
+  if (!isOpen) return null
 
   const handleSignIn = async () => {
     setIsLoading(true)
     // Simulate authentication delay
-    await new Promise((resolve) => setTimeout(resolve, 1200))
-    onSignIn(selectedRole)
+    await new Promise((resolve) => setTimeout(resolve, 800))
+    onSignIn()
+    setIsLoading(false)
   }
 
   const handleCACClick = () => {
@@ -38,51 +33,29 @@ export function SignInScreen({ onSignIn }: SignInScreenProps) {
   }
 
   return (
-    <div className={cn(
-      "min-h-screen bg-background flex items-center justify-center p-4 transition-colors duration-300",
-      selectedRole === 'admin' && "admin"
-    )}>
-      <div className="w-full max-w-sm">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-primary/10 mb-3">
-            <Shield className="w-7 h-7 text-primary" />
+    <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="w-full max-w-sm bg-card border border-border rounded-xl shadow-xl">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 pt-6 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
+              <Shield className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="font-semibold font-display">Admin Sign In</h2>
+              <p className="text-xs text-muted-foreground">Policy Management Access</p>
+            </div>
           </div>
-          <h1 className="text-xl font-semibold font-display">Policy Document Management System</h1>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-accent rounded-md transition-colors"
+          >
+            <X className="w-5 h-5 text-muted-foreground" />
+          </button>
         </div>
 
-        {/* Sign in card */}
-        <div className="bg-card border border-border rounded-xl p-6">
-          <h2 className="text-lg font-medium mb-4 font-display">Sign In</h2>
-
-          {/* Role toggle - small radio buttons */}
-          <div className="flex items-center gap-4 mb-5 text-sm">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name="role"
-                checked={selectedRole === 'user'}
-                onChange={() => setSelectedRole('user')}
-                className="w-4 h-4 text-primary accent-primary"
-              />
-              <span className={selectedRole === 'user' ? 'text-foreground' : 'text-muted-foreground'}>
-                Personnel
-              </span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name="role"
-                checked={selectedRole === 'admin'}
-                onChange={() => setSelectedRole('admin')}
-                className="w-4 h-4 text-primary accent-primary"
-              />
-              <span className={selectedRole === 'admin' ? 'text-foreground' : 'text-muted-foreground'}>
-                Administrator
-              </span>
-            </label>
-          </div>
-
+        {/* Form */}
+        <div className="px-6 pb-6">
           {/* Email field */}
           <div className="mb-4">
             <label className="block text-sm font-medium mb-1.5 text-muted-foreground">
@@ -90,7 +63,7 @@ export function SignInScreen({ onSignIn }: SignInScreenProps) {
             </label>
             <input
               type="email"
-              value={currentUser.email}
+              value={ADMIN_USER.email}
               readOnly
               className="w-full px-3 py-2.5 bg-muted/50 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
@@ -150,9 +123,11 @@ export function SignInScreen({ onSignIn }: SignInScreenProps) {
         </div>
 
         {/* Footer */}
-        <p className="text-center text-xs text-muted-foreground mt-5">
-          Demo mode - Select a role to explore the system
-        </p>
+        <div className="px-6 pb-4">
+          <p className="text-center text-xs text-muted-foreground">
+            Demo mode - Click Sign In to access admin features
+          </p>
+        </div>
       </div>
     </div>
   )
