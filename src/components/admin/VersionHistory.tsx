@@ -194,19 +194,13 @@ export function VersionHistory() {
                       <span className="font-semibold">
                         Version {version.version_number}
                       </span>
-                      {(version as any).is_current && (
+                      {(version as any).is_current ? (
                         <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
                           Current
                         </span>
-                      )}
-                      {version.status === 'pending' && (
-                        <span className="text-xs bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded">
-                          Pending Review
-                        </span>
-                      )}
-                      {version.status === 'published' && !(version as any).is_current && (
+                      ) : (
                         <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded">
-                          Published
+                          Previous
                         </span>
                       )}
                     </div>
@@ -267,13 +261,8 @@ export function VersionHistory() {
                 <FileText className="w-5 h-5 text-primary flex-shrink-0" />
                 <div className="min-w-0">
                   <h2 className="font-semibold truncate">{document?.name}</h2>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>Version {viewingVersion.version_number}</span>
-                    {viewingVersion.status === 'pending' && (
-                      <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500">
-                        Pending Review
-                      </span>
-                    )}
+                  <div className="text-xs text-muted-foreground">
+                    Version {viewingVersion.version_number}
                   </div>
                 </div>
               </div>
