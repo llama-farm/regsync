@@ -62,6 +62,7 @@ export function Sidebar() {
           icon={<LayoutDashboard className="w-4 h-4" />}
           label="Policy Management"
           adminOnly
+          end
         />
 
         {/* Policy Assistant - available to all users */}
