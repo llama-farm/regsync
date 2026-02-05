@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Upload, FileText, X, Loader2, Calendar, Hash, AlertCircle, Check, ArrowLeft, Eye } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import type { PolicyDocument } from '@/types/document'
 import { documentsApi } from '@/api/documentsApi'
@@ -124,11 +125,18 @@ export function DocumentUpload() {
           isUpdate: false
         })
         setStatus('confirm')
+        toast.success('Document uploaded successfully', {
+          description: 'Review the document before publishing.',
+        })
       }
     } catch (err) {
       console.error('Upload failed:', err)
       setStatus('error')
-      setErrorMessage(err instanceof Error ? err.message : 'Upload failed. Make sure the server is running.')
+      const message = err instanceof Error ? err.message : 'Upload failed. Make sure the server is running.'
+      setErrorMessage(message)
+      toast.error('Upload failed', {
+        description: message,
+      })
     }
   }
 
@@ -137,9 +145,15 @@ export function DocumentUpload() {
 
     if (uploadedDoc.isUpdate && uploadedDoc.previousVersionId) {
       // For updates, go to the diff review page
+      toast.info('Preparing change review...', {
+        description: 'You can compare the new version with the previous one.',
+      })
       navigate(`/review/${uploadedDoc.id}/${uploadedDoc.previousVersionId}`)
     } else {
-      // For new documents, go back to admin dashboard
+      // For new documents, show success and go back to admin dashboard
+      toast.success('Document published!', {
+        description: `${uploadedDoc.name} is now available to users.`,
+      })
       navigate('/admin')
     }
   }

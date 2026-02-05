@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
+import { Toaster } from 'sonner'
 import { AppShell } from './components/layout/AppShell'
 import { AdminDashboard } from './components/admin/AdminDashboard'
 import { DocumentUpload } from './components/admin/DocumentUpload'
@@ -62,7 +63,19 @@ function App() {
     return <SignInScreen onSignIn={login} />
   }
 
-  return <AuthenticatedApp />
+  return (
+    <>
+      <Toaster
+        position="top-right"
+        richColors
+        closeButton
+        toastOptions={{
+          className: 'font-body',
+        }}
+      />
+      <AuthenticatedApp />
+    </>
+  )
 }
 
 export default App

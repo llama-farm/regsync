@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Check, X, ChevronDown, ChevronRight, FileText, Loader2, AlertCircle, ArrowLeft } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import type { Change, ChangesSummary } from '@/types/document'
 import { documentsApi } from '@/api/documentsApi'
@@ -167,10 +168,17 @@ export function ChangeReview() {
     try {
       setApproving(true)
       await documentsApi.approveVersion(documentId, pendingVersionId)
+      toast.success('Version published!', {
+        description: `${documentName} has been updated and is now available to users.`,
+      })
       navigate('/admin')
     } catch (err) {
       console.error('Failed to approve:', err)
-      setError('Failed to approve version')
+      const message = err instanceof Error ? err.message : 'Failed to approve version'
+      setError(message)
+      toast.error('Approval failed', {
+        description: message,
+      })
       setApproving(false)
     }
   }
@@ -185,10 +193,17 @@ export function ChangeReview() {
     try {
       setRejecting(true)
       await documentsApi.rejectVersion(documentId, pendingVersionId)
+      toast.info('Version rejected', {
+        description: 'The pending version has been removed.',
+      })
       navigate(`/history/${documentId}`)
     } catch (err) {
       console.error('Failed to reject:', err)
-      setError('Failed to reject version')
+      const message = err instanceof Error ? err.message : 'Failed to reject version'
+      setError(message)
+      toast.error('Rejection failed', {
+        description: message,
+      })
       setRejecting(false)
     }
   }
