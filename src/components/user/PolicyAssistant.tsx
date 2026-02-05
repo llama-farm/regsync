@@ -139,47 +139,10 @@ export function PolicyAssistant() {
     return confidence !== null && confidence < 50
   }
 
-  // Handle clicking on a document to ask about changes
-  // Uses document-specific version comparison instead of general RAG
-  const handleDocumentClick = async (documentId: string, documentName: string) => {
-    if (isLoading) return
-
-    const userMessage: ChatMessage = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: `What changed in ${documentName}?`,
-      timestamp: new Date().toISOString(),
-    }
-
-    setMessages((prev) => [...prev, userMessage])
-    setIsLoading(true)
-
-    try {
-      // Use document-specific query that compares versions
-      const response = await chatApi.queryDocumentChanges(documentId, documentName)
-
-      const assistantMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: response.answer,
-        sources: response.sources,
-        timestamp: new Date().toISOString(),
-      }
-
-      setMessages((prev) => [...prev, assistantMessage])
-    } catch (err) {
-      console.error('Document query error:', err)
-
-      const errorMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: 'Sorry, I encountered an error while looking up this document. Please make sure the server is running and try again.',
-        timestamp: new Date().toISOString(),
-      }
-      setMessages((prev) => [...prev, errorMessage])
-    } finally {
-      setIsLoading(false)
-    }
+  // Handle clicking on a document to ask about it
+  // Uses regular RAG search (document diff feature removed - can revisit later)
+  const handleDocumentClick = (_documentId: string, documentName: string) => {
+    handleSend(`What are the key points in ${documentName}?`)
   }
 
   // Handle feedback click
