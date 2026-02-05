@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   FileText,
   MessageSquare,
+  Users,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -12,11 +13,17 @@ interface NavItemProps {
   icon: React.ReactNode
   label: string
   adminOnly?: boolean
+  superAdminOnly?: boolean
   userOnly?: boolean
+  end?: boolean
 }
 
-function NavItem({ to, icon, label, adminOnly, userOnly }: NavItemProps) {
-  const { isAdmin } = useAuth()
+function NavItem({ to, icon, label, adminOnly, superAdminOnly, userOnly, end }: NavItemProps) {
+  const { isAdmin, isSuperAdmin } = useAuth()
+
+  if (superAdminOnly && !isSuperAdmin) {
+    return null
+  }
 
   if (adminOnly && !isAdmin) {
     return null
@@ -29,6 +36,7 @@ function NavItem({ to, icon, label, adminOnly, userOnly }: NavItemProps) {
   return (
     <NavLink
       to={to}
+      end={end}
       className={({ isActive }) =>
         cn(
           'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
@@ -56,11 +64,12 @@ export function Sidebar() {
           adminOnly
         />
 
-        {/* Policy Assistant - available to all users (active on / and /assistant) */}
+        {/* Policy Assistant - available to all users */}
         <NavItem
           to="/"
           icon={<MessageSquare className="w-4 h-4" />}
           label="Policy Assistant"
+          end
         />
 
         {/* Shared: Documents list */}
@@ -68,6 +77,14 @@ export function Sidebar() {
           to="/documents"
           icon={<FileText className="w-4 h-4" />}
           label="Documents"
+        />
+
+        {/* Admin Management - superadmin only */}
+        <NavItem
+          to="/admin/management"
+          icon={<Users className="w-4 h-4" />}
+          label="Admin Management"
+          superAdminOnly
         />
       </nav>
 

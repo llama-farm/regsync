@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { AppShell } from './components/layout/AppShell'
 import { AdminDashboard } from './components/admin/AdminDashboard'
+import { AdminManagement } from './components/admin/AdminManagement'
 import { DocumentUpload } from './components/admin/DocumentUpload'
 import { VersionHistory } from './components/admin/VersionHistory'
 import { PolicyAssistant } from './components/user/PolicyAssistant'
@@ -47,6 +48,7 @@ function AppRoutes() {
 
         {/* Admin routes - protected */}
         <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+        <Route path="/admin/management" element={<AdminRoute><AdminManagement /></AdminRoute>} />
         <Route path="/upload" element={<AdminRoute><DocumentUpload /></AdminRoute>} />
         <Route path="/history/:documentId" element={<AdminRoute><VersionHistory /></AdminRoute>} />
 
