@@ -48,18 +48,16 @@ export function VersionHistory() {
           return dateA - dateB
         })
 
-        // Determine which version is current:
-        // Use current_version_id if set, otherwise default to newest (last in sorted array)
-        const currentVersionId = doc.current_version_id
-          || (sortedVersions.length > 0 ? sortedVersions[sortedVersions.length - 1].id : null)
+        const totalVersions = sortedVersions.length
 
         // Map API fields and assign version numbers
+        // The LAST item in sorted array (idx === totalVersions - 1) is the newest/current
         const mappedVersions = sortedVersions.map((v: any, idx: number) => ({
           ...v,
           uploaded_at: v.created_at || v.uploaded_at,
           file_size: v.size || v.file_size || 0,
           version_number: idx + 1, // Version 1 = oldest, Version N = newest
-          is_current: v.id === currentVersionId,
+          is_current: idx === totalVersions - 1, // Newest version is current
         }))
 
         // Reverse so newest (current) is shown first at top
