@@ -10,16 +10,21 @@ export interface PolicyDocument {
 
 export interface DocumentVersion {
   id: string
-  document_id: string
-  version_number: number
+  document_id?: string
+  version_number?: number
   uploaded_at: string
   uploaded_by: string
-  file_hash: string
+  file_hash?: string
   file_size: number
-  file_name: string
-  mime_type: string
-  notes: string
-  status: 'draft' | 'published'
+  file_name?: string
+  // Server uses 'filename' and 'size' directly
+  filename?: string
+  original_name?: string
+  size?: number
+  mime_type?: string
+  notes?: string
+  status?: 'draft' | 'published' | 'pending'
+  created_at?: string
 }
 
 export interface Change {

@@ -1,4 +1,5 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { useEffect, useRef } from 'react'
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { AppShell } from './components/layout/AppShell'
 import { AdminDashboard } from './components/admin/AdminDashboard'
 import { DocumentUpload } from './components/admin/DocumentUpload'
@@ -9,13 +10,21 @@ import { DocumentsList } from './components/shared/DocumentsList'
 import { SignInScreen } from './components/auth/SignInScreen'
 import { useAuth } from './contexts/AuthContext'
 
-function App() {
-  const { user, isAdmin, login } = useAuth()
+// Wrapper component that handles navigation after sign-in
+function AuthenticatedApp() {
+  const { user, isAdmin } = useAuth()
+  const navigate = useNavigate()
+  const prevUserRef = useRef<string | null>(null)
 
-  // Show sign-in screen if not logged in
-  if (!user) {
-    return <SignInScreen onSignIn={login} />
-  }
+  // Navigate to default page when user changes (sign-in)
+  useEffect(() => {
+    if (user && user.id !== prevUserRef.current) {
+      // New user signed in - navigate to their default page
+      const defaultPath = isAdmin ? '/admin' : '/assistant'
+      navigate(defaultPath, { replace: true })
+    }
+    prevUserRef.current = user?.id || null
+  }, [user, isAdmin, navigate])
 
   return (
     <AppShell>
@@ -43,6 +52,17 @@ function App() {
       </Routes>
     </AppShell>
   )
+}
+
+function App() {
+  const { user, login } = useAuth()
+
+  // Show sign-in screen if not logged in
+  if (!user) {
+    return <SignInScreen onSignIn={login} />
+  }
+
+  return <AuthenticatedApp />
 }
 
 export default App

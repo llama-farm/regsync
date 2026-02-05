@@ -148,17 +148,33 @@ export const documentsApi = {
   async compareVersions(
     documentId: string,
     oldVersionId: string,
-    newVersionId: string,
-    useLlm = true
+    newVersionId: string
   ): Promise<ChangesSummary> {
-    const { data } = await apiClient.post<CompareVersionsResponse>(
-      projectUrl(`/documents/${documentId}/compare`),
-      {
-        old_version_id: oldVersionId,
-        new_version_id: newVersionId,
-        use_llm: useLlm,
-      }
+    const { data } = await apiClient.get<ChangesSummary>(
+      projectUrl(`/documents/${documentId}/compare?oldVersionId=${oldVersionId}&newVersionId=${newVersionId}`)
     )
-    return data.changes
+    return data
+  },
+
+  // Approve a pending version
+  async approveVersion(
+    documentId: string,
+    versionId: string
+  ): Promise<{ message: string; version: VersionMetadata }> {
+    const { data } = await apiClient.post(
+      projectUrl(`/documents/${documentId}/versions/${versionId}/approve`)
+    )
+    return data
+  },
+
+  // Reject a pending version
+  async rejectVersion(
+    documentId: string,
+    versionId: string
+  ): Promise<{ message: string }> {
+    const { data } = await apiClient.delete(
+      projectUrl(`/documents/${documentId}/versions/${versionId}`)
+    )
+    return data
   },
 }

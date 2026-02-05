@@ -18,16 +18,16 @@ export function Header() {
       <div className="flex items-center gap-3">
         <div className={cn(
           "flex items-center justify-center w-8 h-8 rounded",
-          isAdmin ? "bg-purple-500/10" : "bg-primary/10"
+          "bg-primary/10"
         )}>
           <Shield className={cn(
             "w-5 h-5",
-            isAdmin ? "text-purple-500" : "text-primary"
+            "text-primary"
           )} />
         </div>
         <span className="font-semibold text-lg tracking-tight font-display">RegSync</span>
         {isAdmin && (
-          <span className="text-xs font-medium px-2 py-0.5 rounded bg-purple-500/10 text-purple-400">
+          <span className="text-xs font-medium px-2 py-0.5 rounded bg-primary/10 text-primary">
             Admin
           </span>
         )}
@@ -66,7 +66,7 @@ export function Header() {
           <div className="flex items-center gap-2">
             <div className={cn(
               "flex items-center gap-2 px-3 py-1.5 rounded-md",
-              isAdmin ? "bg-purple-500/10" : "bg-accent"
+              "bg-accent"
             )}>
               <div className="text-right">
                 <div className="text-sm font-medium">{user.name}</div>
@@ -77,7 +77,7 @@ export function Header() {
               <div
                 className={cn(
                   "w-2 h-2 rounded-full",
-                  isAdmin ? "bg-purple-500" : "bg-primary"
+                  "bg-primary"
                 )}
               />
             </div>

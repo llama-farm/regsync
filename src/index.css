@@ -56,19 +56,42 @@
     --admin-primary-foreground: 265 35% 12%;
   }
 
-  /* Admin mode - override primary color with purple */
-  .dark.admin {
-    --primary: 265 70% 65%;
-    --primary-foreground: 265 20% 15%;
-    --ring: 265 60% 55%;
-    --accent: 265 30% 22%;
+  /* Admin mode - subtle gray-purple tint, barely noticeable */
+  /* Support both: .dark.admin (same element) and .dark .admin (descendant) */
+  .dark.admin,
+  .dark .admin {
+    /* Very muted purple-gray backgrounds */
+    --background: 260 8% 11%;
+    --foreground: 250 5% 92%;
+    --card: 260 8% 14%;
+    --card-foreground: 250 5% 92%;
+    --popover: 260 8% 14%;
+    --popover-foreground: 250 5% 92%;
+    --secondary: 260 8% 18%;
+    --secondary-foreground: 250 5% 88%;
+    --muted: 260 8% 16%;
+    --muted-foreground: 255 5% 55%;
+    --accent: 260 8% 20%;
+    --accent-foreground: 250 5% 92%;
+    --border: 260 8% 22%;
+    --input: 260 8% 22%;
+    /* Keep original blue for buttons/interactive elements */
+    --primary: 210 40% 75%;
+    --primary-foreground: 215 35% 12%;
+    --ring: 210 40% 65%;
   }
 
   .admin {
-    --primary: 265 60% 50%;
-    --primary-foreground: 0 0% 100%;
-    --ring: 265 50% 45%;
-    --accent: 265 30% 90%;
+    /* Light mode admin - very subtle purple-gray tint */
+    --background: 260 5% 96%;
+    --card: 260 3% 99%;
+    --muted: 260 5% 93%;
+    --accent: 260 5% 91%;
+    --border: 260 5% 86%;
+    /* Keep original blue for buttons */
+    --primary: 215 50% 35%;
+    --primary-foreground: 210 20% 98%;
+    --ring: 215 50% 35%;
   }
 }
 
@@ -99,4 +122,21 @@
 
 .dark ::-webkit-scrollbar-thumb:hover {
   background: hsl(215 25% 45%);
+}
+
+/* Admin mode scrollbar - subtle gray-purple tint */
+.dark.admin ::-webkit-scrollbar-track,
+.dark .admin ::-webkit-scrollbar-track {
+  background: hsl(260 8% 12%);
+}
+
+.dark.admin ::-webkit-scrollbar-thumb,
+.dark .admin ::-webkit-scrollbar-thumb {
+  background: hsl(260 8% 28%);
+  border-radius: 4px;
+}
+
+.dark.admin ::-webkit-scrollbar-thumb:hover,
+.dark .admin ::-webkit-scrollbar-thumb:hover {
+  background: hsl(260 8% 38%);
 }

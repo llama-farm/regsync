@@ -2,7 +2,6 @@ import { NavLink } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import {
   LayoutDashboard,
-  Upload,
   FileText,
   MessageSquare,
 } from 'lucide-react'
@@ -34,9 +33,7 @@ function NavItem({ to, icon, label, adminOnly, userOnly }: NavItemProps) {
         cn(
           'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
           isActive
-            ? isAdmin
-              ? 'bg-purple-500/10 text-purple-400'
-              : 'bg-primary/10 text-primary'
+            ? 'bg-primary/10 text-primary'
             : 'text-muted-foreground hover:bg-accent hover:text-foreground'
         )
       }
@@ -58,19 +55,12 @@ export function Sidebar() {
           label="Policy Management"
           adminOnly
         />
-        <NavItem
-          to="/upload"
-          icon={<Upload className="w-4 h-4" />}
-          label="Upload Document"
-          adminOnly
-        />
 
-        {/* User: Policy Assistant (combined dashboard + chat) */}
+        {/* Policy Assistant - available to all users */}
         <NavItem
           to="/assistant"
           icon={<MessageSquare className="w-4 h-4" />}
           label="Policy Assistant"
-          userOnly
         />
 
         {/* Shared: Documents list */}
