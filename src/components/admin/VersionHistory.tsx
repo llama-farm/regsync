@@ -11,68 +11,23 @@ import {
   Calendar,
   Loader2,
   AlertCircle,
+  X,
+  ExternalLink,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { documentsApi } from '@/api/documentsApi'
+import { useAuth } from '@/contexts/AuthContext'
 import type { DocumentVersion, PolicyDocument } from '@/types/document'
-
-// Fallback mock data
-const MOCK_DOCUMENT = {
-  id: '1',
-  name: 'Employee Handbook v2024',
-  short_title: 'EMP-HB-2024',
-}
-
-const MOCK_VERSIONS: DocumentVersion[] = [
-  {
-    id: 'v3',
-    document_id: '1',
-    version_number: 3,
-    uploaded_at: '2024-06-01T14:30:00Z',
-    uploaded_by: 'Capt. Sarah Mitchell',
-    notes: 'Updated remote work policy (reduced eligibility from 6 to 3 months), clarified dress code requirements',
-    file_size: 2456789,
-    file_hash: '',
-    file_name: 'employee-handbook.pdf',
-    mime_type: 'application/pdf',
-    status: 'published',
-  },
-  {
-    id: 'v2',
-    document_id: '1',
-    version_number: 2,
-    uploaded_at: '2024-03-15T10:00:00Z',
-    uploaded_by: 'Lt. Col. James Anderson',
-    notes: 'Added section on mental health resources, updated PTO policy',
-    file_size: 2234567,
-    file_hash: '',
-    file_name: 'employee-handbook.pdf',
-    mime_type: 'application/pdf',
-    status: 'published',
-  },
-  {
-    id: 'v1',
-    document_id: '1',
-    version_number: 1,
-    uploaded_at: '2024-01-15T10:00:00Z',
-    uploaded_by: 'Capt. Sarah Mitchell',
-    notes: 'Initial document upload',
-    file_size: 2100000,
-    file_hash: '',
-    file_name: 'employee-handbook.pdf',
-    mime_type: 'application/pdf',
-    status: 'published',
-  },
-]
 
 export function VersionHistory() {
   const { documentId } = useParams()
   const navigate = useNavigate()
+  const { isAdmin } = useAuth()
   const [document, setDocument] = useState<PolicyDocument | null>(null)
   const [versions, setVersions] = useState<DocumentVersion[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [usingMockData, setUsingMockData] = useState(false)
+  const [viewingVersion, setViewingVersion] = useState<DocumentVersion | null>(null)
 
   useEffect(() => {
     const loadData = async () => {
@@ -85,15 +40,24 @@ export function VersionHistory() {
         // Load document details with versions
         const doc = await documentsApi.getDocument(documentId)
         setDocument(doc)
-        setVersions(doc.versions || [])
-        setUsingMockData(false)
+        // Map API fields to component expected fields
+        // Sort by created_at ascending so version 1 is oldest
+        const sortedVersions = [...(doc.versions || [])].sort(
+          (a: any, b: any) => new Date(a.created_at || a.uploaded_at).getTime() - new Date(b.created_at || b.uploaded_at).getTime()
+        )
+        const mappedVersions = sortedVersions.map((v: any, idx: number) => ({
+          ...v,
+          uploaded_at: v.created_at || v.uploaded_at,
+          file_size: v.size || v.file_size || 0,
+          version_number: idx + 1, // Version 1 = oldest, Version N = newest
+          status: v.status || 'published',
+          is_current: v.id === doc.current_version_id,
+        }))
+        // Reverse so newest is shown first
+        setVersions(mappedVersions.reverse())
       } catch (err) {
         console.error('Failed to load document:', err)
-        // Fall back to mock data
-        setDocument(MOCK_DOCUMENT as unknown as PolicyDocument)
-        setVersions(MOCK_VERSIONS)
-        setUsingMockData(true)
-        setError('Using demo data - LlamaFarm server not connected')
+        setError('Failed to load document. Make sure the server is running.')
       } finally {
         setLoading(false)
       }
@@ -122,29 +86,40 @@ export function VersionHistory() {
     alert(`This would create a new version based on ${versionId}. Feature coming soon.`)
   }
 
-  const handleView = (versionId: string) => {
-    // TODO: Open document viewer
-    console.log('View version:', versionId)
+  const handleView = (version: DocumentVersion) => {
+    setViewingVersion(version)
   }
 
   // Loading state
   if (loading) {
     return (
       <div className="max-w-4xl mx-auto flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 animate-spin text-admin-primary" />
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <button
+          onClick={() => navigate('/admin')}
+          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Dashboard
+        </button>
+        <div className="flex items-center gap-2 text-sm text-red-500 bg-red-500/10 px-3 py-2 rounded-md">
+          <AlertCircle className="w-4 h-4" />
+          {error}
+        </div>
       </div>
     )
   }
 
   return (
     <div className="max-w-4xl mx-auto">
-      {/* Connection status */}
-      {usingMockData && error && (
-        <div className="mb-4 flex items-center gap-2 text-sm text-amber-500 bg-amber-500/10 px-3 py-2 rounded-md">
-          <AlertCircle className="w-4 h-4" />
-          {error}
-        </div>
-      )}
 
       {/* Header */}
       <div className="mb-6">
@@ -157,8 +132,8 @@ export function VersionHistory() {
         </button>
 
         <div className="flex items-start gap-4">
-          <div className="p-3 bg-admin-primary/10 rounded-lg">
-            <FileText className="w-6 h-6 text-admin-primary" />
+          <div className="p-3 bg-primary/10 rounded-lg">
+            <FileText className="w-6 h-6 text-primary" />
           </div>
           <div>
             <h1 className="text-2xl font-semibold font-display">
@@ -191,22 +166,24 @@ export function VersionHistory() {
 
           {/* Versions */}
           <div className="space-y-4">
-            {versions.map((version, index) => (
+            {versions.map((version) => {
+              const isCurrent = (version as any).is_current
+              return (
               <div
                 key={version.id}
                 className={cn(
                   'relative bg-card border rounded-lg p-4 ml-12 transition-all',
-                  index === 0
-                    ? 'border-admin-primary/50 ring-1 ring-admin-primary/20'
-                    : 'border-border hover:border-admin-primary/30'
+                  isCurrent
+                    ? 'border-primary/50 ring-1 ring-primary/20'
+                    : 'border-border hover:border-primary/30'
                 )}
               >
                 {/* Timeline dot */}
                 <div
                   className={cn(
                     'absolute -left-[42px] top-6 w-4 h-4 rounded-full border-2 bg-background',
-                    index === 0
-                      ? 'border-admin-primary bg-admin-primary'
+                    isCurrent
+                      ? 'border-primary bg-primary'
                       : 'border-muted-foreground'
                   )}
                 />
@@ -218,21 +195,21 @@ export function VersionHistory() {
                       <span className="font-semibold">
                         Version {version.version_number}
                       </span>
-                      {index === 0 && (
-                        <span className="text-xs bg-admin-primary/10 text-admin-primary px-2 py-0.5 rounded">
+                      {(version as any).is_current && (
+                        <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
                           Current
                         </span>
                       )}
-                      <span
-                        className={cn(
-                          'text-xs px-2 py-0.5 rounded',
-                          version.status === 'published'
-                            ? 'bg-green-500/10 text-green-500'
-                            : 'bg-amber-500/10 text-amber-500'
-                        )}
-                      >
-                        {version.status}
-                      </span>
+                      {version.status === 'pending' && (
+                        <span className="text-xs bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded">
+                          Pending Review
+                        </span>
+                      )}
+                      {version.status === 'published' && !(version as any).is_current && (
+                        <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded">
+                          Published
+                        </span>
+                      )}
                     </div>
                   </div>
                   <span className="text-sm text-muted-foreground">
@@ -259,22 +236,22 @@ export function VersionHistory() {
                 {/* Actions */}
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => handleView(version.id)}
+                    onClick={() => handleView(version)}
                     className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-accent hover:bg-accent/80 rounded-md transition-colors"
                   >
                     <Eye className="w-3.5 h-3.5" />
                     View
                   </button>
-                  {index !== 0 && (
+                  {!isCurrent && isAdmin && version.status !== 'pending' && (
                     <button
                       onClick={() => handleRevert(version.id)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-admin-primary bg-admin-primary/10 hover:bg-admin-primary/20 rounded-md transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-primary bg-primary/10 hover:bg-primary/20 rounded-md transition-colors"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
                       Revert to this version
                     </button>
                   )}
-                  {index !== 0 && (
+                  {!isCurrent && version.status !== 'pending' && (
                     <button
                       onClick={() =>
                         navigate(`/review/${documentId}/${version.id}`)
@@ -287,10 +264,74 @@ export function VersionHistory() {
                   )}
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         </div>
       </div>
+
+      {/* Document Viewer Modal */}
+      {viewingVersion && documentId && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm">
+          <div className="fixed inset-4 z-50 bg-background border border-border rounded-lg shadow-xl flex flex-col overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
+              <div className="flex items-center gap-3 min-w-0">
+                <FileText className="w-5 h-5 text-primary flex-shrink-0" />
+                <div className="min-w-0">
+                  <h2 className="font-semibold truncate">{document?.name}</h2>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>Version {viewingVersion.version_number}</span>
+                    {viewingVersion.status === 'pending' && (
+                      <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500">
+                        Pending Review
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setViewingVersion(null)}
+                className="p-2 hover:bg-accent rounded-md transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* PDF Viewer */}
+            <div className="flex-1 overflow-hidden">
+              <iframe
+                src={`/api/projects/default/regsync/documents/${documentId}/file?version_id=${viewingVersion.id}`}
+                className="w-full h-full"
+                title="Document Preview"
+              />
+            </div>
+
+            {/* Footer */}
+            <div className="px-4 py-3 border-t border-border bg-muted/30 flex items-center justify-between">
+              <div className="text-xs text-muted-foreground">
+                Uploaded by {viewingVersion.uploaded_by} on {formatDate(viewingVersion.uploaded_at)}
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={`/api/projects/default/regsync/documents/${documentId}/file?version_id=${viewingVersion.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent rounded-md transition-colors"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  Open in new tab
+                </a>
+                <button
+                  onClick={() => setViewingVersion(null)}
+                  className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

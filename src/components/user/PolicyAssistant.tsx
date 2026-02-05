@@ -1,10 +1,16 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Loader2, FileText, Clock, ArrowRight, Search } from 'lucide-react'
+import { Send, Loader2, FileText, Clock, ArrowRight, Search, ThumbsUp, ThumbsDown, MessageSquare, Printer, AlertCircle, HelpCircle } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { cn } from '@/lib/utils'
-import type { ChatMessage } from '@/types/chat'
-import { SourceCard } from './SourceCard'
+import type { ChatMessage, CitedSource } from '@/types/chat'
+import { SourcesDisplay } from './SourcesDisplay'
+import { DocumentViewer } from './DocumentViewer'
 import { chatApi } from '@/api/chatApi'
+import { documentsApi } from '@/api/documentsApi'
+import { useAuth } from '@/contexts/AuthContext'
+
+// Storage key for chat history (per role)
+const CHAT_STORAGE_KEY = 'regsync_chat_history'
 
 interface RecentUpdate {
   id: string
@@ -15,30 +21,197 @@ interface RecentUpdate {
   updatedBy: string
 }
 
-const RECENT_UPDATES: RecentUpdate[] = [
-  {
-    id: '1',
-    documentName: 'IT Security Policy',
-    shortTitle: 'IT-SEC-001',
-    summary: 'Updated password requirements and added 2FA guidelines',
-    updatedAt: '2025-01-09T11:15:00Z',
-    updatedBy: 'Maj. Robert Chen',
-  },
-  {
-    id: '2',
-    documentName: 'Employee Handbook',
-    shortTitle: 'EMP-HB-2024',
-    summary: 'Updated remote work policy and dress code',
-    updatedAt: '2024-06-01T14:30:00Z',
-    updatedBy: 'Capt. Sarah Mitchell',
-  },
-]
+// Related questions by topic keyword
+const RELATED_QUESTIONS: Record<string, string[]> = {
+  travel: [
+    'How do I submit a travel voucher in DTS?',
+    'What is the local travel reimbursement policy?',
+    'Who approves travel vouchers over $5,000?',
+  ],
+  leave: [
+    'How do I request leave in LeaveWeb?',
+    'What is the emergency leave policy?',
+    'How much advance notice is required for leave?',
+  ],
+  security: [
+    'What are the password requirements?',
+    'How do I report a security incident?',
+    'What is the clean desk policy?',
+  ],
+  default: [
+    'What policies were recently updated?',
+    'Who do I contact for policy questions?',
+    'How do I request a policy exception?',
+  ],
+}
+
+// Get related questions based on query content
+const getRelatedQuestions = (query: string): string[] => {
+  const lowerQuery = query.toLowerCase()
+  if (lowerQuery.includes('travel') || lowerQuery.includes('voucher') || lowerQuery.includes('tdy')) {
+    return RELATED_QUESTIONS.travel
+  }
+  if (lowerQuery.includes('leave') || lowerQuery.includes('pto') || lowerQuery.includes('vacation')) {
+    return RELATED_QUESTIONS.leave
+  }
+  if (lowerQuery.includes('security') || lowerQuery.includes('password') || lowerQuery.includes('cyber')) {
+    return RELATED_QUESTIONS.security
+  }
+  return RELATED_QUESTIONS.default
+}
 
 export function PolicyAssistant() {
+  const { user } = useAuth()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [feedback, setFeedback] = useState<Record<string, 'up' | 'down' | null>>({})
+  const [recentUpdates, setRecentUpdates] = useState<RecentUpdate[]>([])
+  const [selectedSource, setSelectedSource] = useState<CitedSource | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Load chat history from localStorage on mount
+  useEffect(() => {
+    if (!user) return
+    const storageKey = `${CHAT_STORAGE_KEY}_${user.role}`
+    try {
+      const saved = localStorage.getItem(storageKey)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setMessages(parsed)
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load chat history:', err)
+    }
+  }, [user])
+
+  // Save chat history to localStorage when messages change
+  useEffect(() => {
+    if (!user || messages.length === 0) return
+    const storageKey = `${CHAT_STORAGE_KEY}_${user.role}`
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(messages))
+    } catch (err) {
+      console.error('Failed to save chat history:', err)
+    }
+  }, [messages, user])
+
+  // Fetch recent document updates from API
+  useEffect(() => {
+    const loadRecentUpdates = async () => {
+      try {
+        const response = await documentsApi.listDocuments()
+        // Sort by updated_at and take the most recent
+        const updates = response.documents
+          .filter(doc => doc.updated_at)
+          .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+          .slice(0, 3)
+          .map(doc => ({
+            id: doc.id,
+            documentName: doc.name,
+            shortTitle: doc.short_title || 'Policy Document',
+            summary: `Latest version updated`,
+            updatedAt: doc.updated_at,
+            updatedBy: 'Policy Administrator',
+          }))
+        setRecentUpdates(updates)
+      } catch (err) {
+        console.error('Failed to load recent updates:', err)
+        // Keep empty array - no fallback to mock data
+      }
+    }
+    loadRecentUpdates()
+  }, [])
+
+  // Calculate confidence score from sources (max score)
+  const getConfidenceScore = (sources: ChatMessage['sources']): number | null => {
+    if (!sources || sources.length === 0) return null
+    const maxScore = Math.max(...sources.map((s) => s.score || 0))
+    return Math.round(maxScore * 100)
+  }
+
+  // Check if message is a "no answer" response (no sources or low confidence)
+  const isNoAnswer = (message: ChatMessage): boolean => {
+    if (!message.sources || message.sources.length === 0) return true
+    const confidence = getConfidenceScore(message.sources)
+    return confidence !== null && confidence < 50
+  }
+
+  // Handle feedback click
+  const handleFeedback = (messageId: string, type: 'up' | 'down') => {
+    setFeedback((prev) => ({
+      ...prev,
+      [messageId]: prev[messageId] === type ? null : type,
+    }))
+    // In production, this would send to analytics
+    console.log(`Feedback for message ${messageId}: ${type}`)
+  }
+
+  // Print summary for counseling sessions
+  const handlePrint = (message: ChatMessage, query: string) => {
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) return
+
+    const sources = message.sources?.map((s, i) =>
+      `[${i + 1}] ${s.section || 'Document Section'}${s.updated_by ? ` (${s.updated_by})` : ''}`
+    ).join('\n') || 'No sources cited'
+
+    const confidence = getConfidenceScore(message.sources)
+    const now = new Date().toLocaleString()
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Policy Guidance Summary</title>
+        <style>
+          body { font-family: 'IBM Plex Sans', system-ui, sans-serif; max-width: 700px; margin: 40px auto; padding: 20px; }
+          h1 { font-size: 18px; border-bottom: 2px solid #333; padding-bottom: 8px; }
+          .meta { font-size: 12px; color: #666; margin-bottom: 20px; }
+          .question { background: #f5f5f5; padding: 12px; border-radius: 6px; margin-bottom: 16px; }
+          .question-label { font-size: 11px; text-transform: uppercase; color: #666; margin-bottom: 4px; }
+          .answer { line-height: 1.6; margin-bottom: 20px; }
+          .sources { font-size: 13px; border-top: 1px solid #ddd; padding-top: 16px; }
+          .sources h3 { font-size: 12px; text-transform: uppercase; color: #666; margin-bottom: 8px; }
+          .sources pre { white-space: pre-wrap; font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
+          .confidence { font-size: 12px; color: #16a34a; margin-bottom: 16px; }
+          .footer { font-size: 11px; color: #999; margin-top: 30px; border-top: 1px solid #ddd; padding-top: 12px; }
+          @media print { body { margin: 20px; } }
+        </style>
+      </head>
+      <body>
+        <h1>73rd Medical Wing - Policy Guidance Summary</h1>
+        <div class="meta">Generated: ${now}</div>
+
+        <div class="question">
+          <div class="question-label">Question</div>
+          <div>${query}</div>
+        </div>
+
+        ${confidence ? `<div class="confidence">Confidence: ${confidence}%</div>` : ''}
+
+        <div class="answer">
+          <strong>Answer:</strong><br><br>
+          ${message.content.replace(/\n/g, '<br>')}
+        </div>
+
+        <div class="sources">
+          <h3>Sources</h3>
+          <pre>${sources}</pre>
+        </div>
+
+        <div class="footer">
+          This summary was generated from the 73MDW Policy Knowledge Base.<br>
+          For official guidance, always refer to the source documents.
+        </div>
+      </body>
+      </html>
+    `)
+    printWindow.document.close()
+    printWindow.print()
+  }
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -168,7 +341,7 @@ export function PolicyAssistant() {
               </div>
 
               <div className="space-y-3">
-                {RECENT_UPDATES.map((update) => (
+                {recentUpdates.map((update) => (
                   <button
                     key={update.id}
                     className="w-full bg-card border border-border rounded-lg p-4 hover:border-primary/50 transition-colors text-left group"
@@ -203,7 +376,7 @@ export function PolicyAssistant() {
           /* Chat messages */
           <div className="max-w-3xl mx-auto px-4 py-4">
             <div className="space-y-6">
-              {messages.map((message) => (
+              {messages.map((message, msgIndex) => (
                 <div key={message.id}>
                   {/* Message */}
                   <div
@@ -221,24 +394,120 @@ export function PolicyAssistant() {
                       )}
                     >
                       {message.role === 'assistant' ? (
-                        <div className="prose prose-sm dark:prose-invert max-w-none font-body">
-                          <ReactMarkdown>{message.content}</ReactMarkdown>
-                        </div>
+                        <>
+                          {/* Confidence score badge or no-answer warning */}
+                          {message.sources && message.sources.length > 0 ? (
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className={cn(
+                                "text-xs px-2 py-0.5 rounded font-medium",
+                                (getConfidenceScore(message.sources) || 0) >= 50
+                                  ? "bg-green-500/10 text-green-500"
+                                  : "bg-amber-500/10 text-amber-500"
+                              )}>
+                                Confidence: {getConfidenceScore(message.sources)}%
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-xs bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded font-medium flex items-center gap-1">
+                                <AlertCircle className="w-3 h-3" />
+                                Limited information found
+                              </span>
+                            </div>
+                          )}
+                          <div className="prose prose-sm dark:prose-invert max-w-none font-body prose-p:my-3 prose-headings:mt-4 prose-headings:mb-2 prose-ul:my-2 prose-li:my-1 [&>p:first-child]:mt-0">
+                            <ReactMarkdown>{message.content}</ReactMarkdown>
+                          </div>
+
+                          {/* No-answer suggestions */}
+                          {isNoAnswer(message) && (
+                            <div className="mt-3 p-3 bg-amber-500/5 border border-amber-500/20 rounded-md">
+                              <div className="flex items-center gap-2 text-sm font-medium text-amber-600 dark:text-amber-400 mb-2">
+                                <HelpCircle className="w-4 h-4" />
+                                Suggested next steps
+                              </div>
+                              <ul className="text-sm text-muted-foreground space-y-1.5">
+                                <li>• Contact your supervisor or First Sergeant for local guidance</li>
+                                <li>• Check the Wing SharePoint for recent policy updates</li>
+                                <li>• Submit a question to Wing Staff (73 MDW/CCE)</li>
+                              </ul>
+                              <button
+                                className="mt-3 text-xs text-primary hover:underline"
+                                onClick={() => alert('Feature coming soon: Submit a request to add this topic to the knowledge base.')}
+                              >
+                                Should this topic be in our knowledge base? Let us know →
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Feedback and print buttons */}
+                          <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
+                            <div className="flex items-center gap-3">
+                              <span className="text-xs text-muted-foreground">Was this helpful?</span>
+                              <button
+                                onClick={() => handleFeedback(message.id, 'up')}
+                                className={cn(
+                                  'p-1.5 rounded transition-colors',
+                                  feedback[message.id] === 'up'
+                                    ? 'bg-green-500/20 text-green-500'
+                                    : 'hover:bg-accent text-muted-foreground'
+                                )}
+                              >
+                                <ThumbsUp className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleFeedback(message.id, 'down')}
+                                className={cn(
+                                  'p-1.5 rounded transition-colors',
+                                  feedback[message.id] === 'down'
+                                    ? 'bg-red-500/20 text-red-500'
+                                    : 'hover:bg-accent text-muted-foreground'
+                                )}
+                              >
+                                <ThumbsDown className="w-4 h-4" />
+                              </button>
+                            </div>
+                            {/* Print button for counseling sessions */}
+                            <button
+                              onClick={() => handlePrint(message, messages[msgIndex - 1]?.content || '')}
+                              className="flex items-center gap-1.5 px-2 py-1 text-xs text-muted-foreground hover:bg-accent rounded transition-colors"
+                              title="Print summary for counseling"
+                            >
+                              <Printer className="w-3.5 h-3.5" />
+                              Print Summary
+                            </button>
+                          </div>
+                        </>
                       ) : (
                         <p className="font-body">{message.content}</p>
                       )}
                     </div>
                   </div>
 
-                  {/* Sources */}
+                  {/* Sources - grouped by document with expandable chunks */}
                   {message.sources && message.sources.length > 0 && (
-                    <div className="mt-3">
-                      <p className="text-xs font-medium text-muted-foreground mb-2">
-                        Sources ({message.sources.length})
-                      </p>
-                      <div className="space-y-2">
-                        {message.sources.map((source, index) => (
-                          <SourceCard key={index} source={source} />
+                    <SourcesDisplay
+                      sources={message.sources}
+                      onViewDocument={(source) => setSelectedSource(source)}
+                    />
+                  )}
+
+                  {/* Related questions - show after last assistant message */}
+                  {message.role === 'assistant' && msgIndex === messages.length - 1 && !isLoading && (
+                    <div className="mt-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <MessageSquare className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span className="text-xs font-medium text-muted-foreground">Related Questions</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {getRelatedQuestions(messages[msgIndex - 1]?.content || '').map((question, i) => (
+                          <button
+                            key={i}
+                            onClick={() => handleSend(question)}
+                            className="text-xs px-3 py-1.5 bg-accent hover:bg-accent/80 rounded-full transition-colors"
+                          >
+                            {question}
+                          </button>
                         ))}
                       </div>
                     </div>
@@ -283,6 +552,14 @@ export function PolicyAssistant() {
             </div>
           </form>
         </div>
+      )}
+
+      {/* Document viewer modal */}
+      {selectedSource && (
+        <DocumentViewer
+          source={selectedSource}
+          onClose={() => setSelectedSource(null)}
+        />
       )}
     </div>
   )

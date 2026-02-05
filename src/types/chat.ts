@@ -8,6 +8,10 @@ export interface CitedSource {
   section?: string
   updated_at?: string
   updated_by?: string
+  // Fields from LlamaFarm RAG metadata
+  filename?: string
+  page_number?: number
+  source?: string
 }
 
 export interface ChatMessage {
