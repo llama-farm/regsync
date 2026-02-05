@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Upload, FileText, X, Loader2, Calendar, Hash, AlertCircle, Check, ArrowLeft, Eye } from 'lucide-react'
 import { toast } from 'sonner'
@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { UploadDiffPreview } from './UploadDiffPreview'
 import { ScopeSelector } from './ScopeSelector'
 import { MatchSuggestions } from './MatchSuggestions'
+import { FullPageDropZone } from '@/components/ui/FullPageDropZone'
 
 type UploadStatus = 'idle' | 'uploading' | 'detecting' | 'processing' | 'confirm' | 'publishing' | 'error'
 
@@ -31,6 +32,7 @@ export function DocumentUpload() {
   const { adminUser } = useAuth()
   // Now receiving full document object instead of just ID
   const existingDocument = location.state?.document as PolicyDocument | undefined
+  const droppedFile = location.state?.droppedFile as File | undefined
   const isUpdate = !!existingDocument
 
   const [file, setFile] = useState<File | null>(null)
@@ -44,6 +46,26 @@ export function DocumentUpload() {
   const [uploadedDoc, setUploadedDoc] = useState<UploadedDocInfo | null>(null)
   const [matchResult, setMatchResult] = useState<MatchDetectionResult | null>(null)
   const previousVersionId = useRef<string | null>(existingDocument?.current_version_id || null)
+
+  // Handle file dropped from another page (via navigation state)
+  useEffect(() => {
+    if (droppedFile && droppedFile.type === 'application/pdf') {
+      setFile(droppedFile)
+      if (!name) {
+        setName(droppedFile.name.replace('.pdf', ''))
+      }
+    }
+  }, [droppedFile])
+
+  // Handle full-page file drop
+  const handleFullPageDrop = useCallback((droppedFile: File) => {
+    if (droppedFile.type === 'application/pdf') {
+      setFile(droppedFile)
+      if (!name) {
+        setName(droppedFile.name.replace('.pdf', ''))
+      }
+    }
+  }, [name])
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -402,6 +424,7 @@ export function DocumentUpload() {
 
   // Upload form
   return (
+    <FullPageDropZone onFileDrop={handleFullPageDrop}>
     <div className="max-w-2xl mx-auto">
       <div className="mb-6">
         <button
@@ -604,5 +627,6 @@ export function DocumentUpload() {
         )}
       </form>
     </div>
+    </FullPageDropZone>
   )
 }

@@ -4,6 +4,7 @@ import { FileText, History, Upload, Eye, RefreshCw, Loader2, AlertCircle, Trash2
 import { toast } from 'sonner'
 import type { PolicyDocument } from '@/types/document'
 import { documentsApi } from '@/api/documentsApi'
+import { FullPageDropZone } from '@/components/ui/FullPageDropZone'
 
 interface PolicyCardProps {
   policy: PolicyDocument
@@ -126,7 +127,13 @@ export function AdminDashboard() {
     }
   }
 
+  const handleFileDrop = (file: File) => {
+    // Navigate to upload page with the dropped file
+    navigate('/upload', { state: { droppedFile: file } })
+  }
+
   return (
+    <FullPageDropZone onFileDrop={handleFileDrop}>
     <div className="max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
@@ -202,5 +209,6 @@ export function AdminDashboard() {
         </>
       )}
     </div>
+    </FullPageDropZone>
   )
 }
