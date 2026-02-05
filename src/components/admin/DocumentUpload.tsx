@@ -124,8 +124,11 @@ export function DocumentUpload() {
             return
           }
         } catch (matchError) {
-          // Match detection failed - proceed with normal upload
+          // Match detection failed - show warning but proceed with normal upload
           console.warn('Match detection failed, proceeding with upload:', matchError)
+          toast.warning('Unable to check for similar documents', {
+            description: 'Proceeding with upload. The document may be a duplicate.',
+          })
         }
 
         // No matches found or detection failed - proceed with normal upload
