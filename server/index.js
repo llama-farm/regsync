@@ -489,6 +489,11 @@ function computeTextDiff(oldText, newText) {
 
 // Generate AI summary of changes using LlamaFarm
 async function generateChangeSummary(changes, docName) {
+  // Handle no changes case
+  if (changes.length === 0) {
+    return `No significant content changes detected between versions of "${docName}". The document may have formatting or metadata updates.`
+  }
+
   try {
     const changesText = changes.map((c, i) =>
       `${i + 1}. ${c.type.toUpperCase()}: ${c.section} - ${c.summary}`
@@ -508,14 +513,14 @@ async function generateChangeSummary(changes, docName) {
     })
 
     if (!response.ok) {
-      return `${changes.length} changes detected in the document.`
+      return `${changes.length} change${changes.length === 1 ? '' : 's'} detected in the document.`
     }
 
     const data = await response.json()
-    return data.choices?.[0]?.message?.content || `${changes.length} changes detected in the document.`
+    return data.choices?.[0]?.message?.content || `${changes.length} change${changes.length === 1 ? '' : 's'} detected in the document.`
   } catch (error) {
     console.error('AI summary error:', error.message)
-    return `${changes.length} changes detected in the document.`
+    return `${changes.length} change${changes.length === 1 ? '' : 's'} detected in the document.`
   }
 }
 

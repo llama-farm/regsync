@@ -289,8 +289,12 @@ export function ChangeReview() {
           ))}
         </div>
       ) : (
-        <div className="text-center py-8 text-muted-foreground">
-          No significant changes detected between versions
+        <div className="text-center py-12 bg-card border border-border rounded-lg">
+          <Check className="w-12 h-12 text-green-500 mx-auto mb-3" />
+          <p className="text-lg font-medium mb-1">No Content Changes Detected</p>
+          <p className="text-sm text-muted-foreground max-w-md mx-auto">
+            The document content appears to be identical. Any differences may be in formatting, metadata, or file structure only.
+          </p>
         </div>
       )}
 

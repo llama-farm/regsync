@@ -40,13 +40,13 @@ rag:
         port: 8000
       embedding_strategies:
         - name: default_embeddings
-          type: UniversalEmbedder
+          type: OllamaEmbedder
           config:
-            model: nomic-ai/nomic-embed-text-v2-moe
+            model: nomic-embed-text
+            base_url: http://localhost:11434
             dimension: 768
             batch_size: 16
             timeout: 60
-            auto_pull: true
           priority: 0
       retrieval_strategies:
         - name: semantic_search
