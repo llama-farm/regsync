@@ -39,20 +39,30 @@ export function VersionHistory() {
         // Load document details with versions
         const doc = await documentsApi.getDocument(documentId)
         setDocument(doc)
-        // Map API fields to component expected fields
-        // Sort by created_at ascending so version 1 is oldest
-        const sortedVersions = [...(doc.versions || [])].sort(
-          (a: any, b: any) => new Date(a.created_at || a.uploaded_at).getTime() - new Date(b.created_at || b.uploaded_at).getTime()
-        )
+
+        // Sort by date ascending (oldest first) to assign version numbers correctly
+        // Version 1 = oldest, Version N = newest (current)
+        const sortedVersions = [...(doc.versions || [])].sort((a: any, b: any) => {
+          const dateA = new Date(a.created_at || a.uploaded_at || 0).getTime()
+          const dateB = new Date(b.created_at || b.uploaded_at || 0).getTime()
+          return dateA - dateB
+        })
+
+        // Determine which version is current:
+        // Use current_version_id if set, otherwise default to newest (last in sorted array)
+        const currentVersionId = doc.current_version_id
+          || (sortedVersions.length > 0 ? sortedVersions[sortedVersions.length - 1].id : null)
+
+        // Map API fields and assign version numbers
         const mappedVersions = sortedVersions.map((v: any, idx: number) => ({
           ...v,
           uploaded_at: v.created_at || v.uploaded_at,
           file_size: v.size || v.file_size || 0,
           version_number: idx + 1, // Version 1 = oldest, Version N = newest
-          status: v.status || 'published',
-          is_current: v.id === doc.current_version_id,
+          is_current: v.id === currentVersionId,
         }))
-        // Reverse so newest is shown first
+
+        // Reverse so newest (current) is shown first at top
         setVersions(mappedVersions.reverse())
       } catch (err) {
         console.error('Failed to load document:', err)
