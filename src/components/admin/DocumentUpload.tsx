@@ -401,6 +401,14 @@ export function DocumentUpload() {
   return (
     <div className="max-w-2xl mx-auto">
       <div className="mb-6">
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back
+        </button>
         <h1 className="text-2xl font-semibold font-display">
           {isUpdate ? 'Update Document' : 'Upload Document'}
         </h1>

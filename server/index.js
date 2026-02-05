@@ -669,7 +669,7 @@ function calculateMatchScore(uploadedFilename, existingDoc, extractedText) {
     normalizeString(existingFilename)
   )
   const filenameScore = Math.round(filenameSimilarity * 40)
-  if (filenameScore > 15) {
+  if (filenameScore > 8) {  // Lowered threshold from 15 to 8 (20% similarity)
     score += filenameScore
     signals.push({ type: 'filename', weight: filenameScore, similarity: filenameSimilarity })
   }
@@ -682,9 +682,14 @@ function calculateMatchScore(uploadedFilename, existingDoc, extractedText) {
     normalizeString(existingDoc.name)
   )
   const titleScore = Math.round(titleSimilarity * 30)
-  if (titleScore > 10) {
+  if (titleScore > 6) {  // Lowered threshold from 10 to 6 (20% similarity)
     score += titleScore
     signals.push({ type: 'title', weight: titleScore, similarity: titleSimilarity })
+  }
+
+  // Debug logging
+  if (score > 0) {
+    console.log(`Match score for "${existingDoc.name}": ${score}`, signals)
   }
 
   return { score, signals }
@@ -692,28 +697,33 @@ function calculateMatchScore(uploadedFilename, existingDoc, extractedText) {
 
 // Get confidence level from score
 function getConfidenceLevel(score) {
-  if (score >= 80) return 'high'
-  if (score >= 50) return 'medium'
-  if (score >= 25) return 'low'
+  if (score >= 70) return 'high'
+  if (score >= 40) return 'medium'
+  if (score >= 20) return 'low'  // Lowered from 25 to catch more potential matches
   return null
 }
 
 // Detect potential matches for an uploaded document
 app.post('/v1/projects/:namespace/:project/documents/detect-matches', upload.single('file'), async (req, res) => {
   const startTime = Date.now()
+  console.log('=== Match Detection Request ===')
 
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' })
   }
 
+  console.log('Uploaded file:', req.file.originalname)
+
   try {
     // Extract text from uploaded PDF
     const filePath = path.join(POLICIES_DIR, req.file.filename)
     const extractedText = await extractPdfText(filePath)
+    console.log('Extracted text length:', extractedText?.length || 0)
 
     // Load all existing documents
     const metadata = loadMetadata()
     const existingDocs = metadata.documents
+    console.log('Existing documents to check:', existingDocs.length)
 
     // Score each document
     const matches = []
