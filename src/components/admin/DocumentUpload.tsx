@@ -249,17 +249,11 @@ export function DocumentUpload() {
   const handleConfirm = () => {
     if (!uploadedDoc) return
 
-    // Go directly to version history or admin dashboard
-    // (document diff feature removed - can revisit later)
     toast.success(uploadedDoc.isUpdate ? 'Version uploaded!' : 'Document published!', {
       description: `${uploadedDoc.name} is now available to users.`,
     })
 
-    if (uploadedDoc.isUpdate) {
-      navigate(`/history/${uploadedDoc.id}`)
-    } else {
-      navigate('/admin')
-    }
+    navigate('/admin')
   }
 
   const handleCancel = () => {
