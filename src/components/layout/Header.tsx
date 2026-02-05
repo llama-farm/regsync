@@ -3,6 +3,7 @@ import { Shield, Moon, Sun, RefreshCw, LogOut } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { AdminSignInModal } from '@/components/auth/AdminSignInModal'
+import { LocationContext } from './LocationContext'
 
 export function Header() {
   const { isAuthenticated, isAdmin, adminUser, login, logout } = useAuth()
@@ -43,16 +44,15 @@ export function Header() {
 
         {/* Right side */}
         <div className="flex items-center gap-4">
+          {/* Location context indicator */}
+          <LocationContext />
+
           {/* Sync indicator */}
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              <span>5 nodes</span>
-            </span>
-            <span className="text-border">|</span>
-            <span className="flex items-center gap-1.5">
               <RefreshCw className="w-3.5 h-3.5" />
-              <span>Last sync: 2 min</span>
+              <span>Synced</span>
             </span>
           </div>
 

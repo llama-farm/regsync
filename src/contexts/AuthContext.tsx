@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, ReactNode } from 'react'
+import type { UserLocation } from '@/types/location'
 
 export type UserRole = 'user' | 'admin' | 'superadmin'
 
@@ -7,6 +8,7 @@ export interface AdminUser {
   name: string
   title: string
   role: UserRole
+  location: UserLocation
 }
 
 interface AuthContextType {
@@ -25,12 +27,17 @@ export const permissions = {
   superadmin: ['view_policies', 'ask_questions', 'upload_policies', 'manage_versions', 'manage_admins']
 } as const
 
-// Mock admin user for demo - Sarah is a superadmin
+// Mock admin user for demo - Sarah is a superadmin at 73 MDW
 const ADMIN_USER: AdminUser = {
   id: '1',
   name: 'Capt. Sarah Mitchell',
   title: 'Policy Administrator',
   role: 'superadmin',
+  location: {
+    majcom: 'AETC',
+    installation: 'JBSA',
+    wing: '73 MDW',
+  },
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)

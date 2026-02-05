@@ -4,9 +4,11 @@ import { Upload, FileText, X, Loader2, Calendar, Hash, AlertCircle, Check, Arrow
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import type { PolicyDocument } from '@/types/document'
+import type { PolicyScope } from '@/types/location'
 import { documentsApi } from '@/api/documentsApi'
 import { useAuth } from '@/contexts/AuthContext'
 import { UploadDiffPreview } from './UploadDiffPreview'
+import { ScopeSelector } from './ScopeSelector'
 
 type UploadStatus = 'idle' | 'uploading' | 'processing' | 'confirm' | 'publishing' | 'error'
 
@@ -33,6 +35,7 @@ export function DocumentUpload() {
   const [name, setName] = useState('')
   const [shortTitle, setShortTitle] = useState('')
   const [notes, setNotes] = useState('')
+  const [scope, setScope] = useState<PolicyScope | null>(existingDocument?.scope ?? null)
   const [status, setStatus] = useState<UploadStatus>('idle')
   const [dragActive, setDragActive] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -110,7 +113,8 @@ export function DocumentUpload() {
           name,
           uploadedBy,
           shortTitle || undefined,
-          notes || undefined
+          notes || undefined,
+          scope
         )
         setStatus('processing')
         await new Promise((resolve) => setTimeout(resolve, 500))
@@ -442,6 +446,14 @@ export function DocumentUpload() {
             className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring resize-none"
           />
         </div>
+
+        {/* Scope selection (only for new documents) */}
+        {!isUpdate && (
+          <ScopeSelector
+            value={scope}
+            onChange={setScope}
+          />
+        )}
 
         {/* Submit button */}
         <button

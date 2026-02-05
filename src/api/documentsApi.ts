@@ -6,6 +6,7 @@ import type {
   VersionWithChanges,
   ChangesSummary,
 } from '@/types/document'
+import type { PolicyScope } from '@/types/location'
 
 interface ListDocumentsResponse {
   total: number
@@ -59,7 +60,8 @@ export const documentsApi = {
     name: string,
     uploadedBy: string,
     shortTitle?: string,
-    notes?: string
+    notes?: string,
+    scope?: PolicyScope | null
   ): Promise<CreateDocumentResponse> {
     const formData = new FormData()
     formData.append('file', file)
@@ -67,6 +69,7 @@ export const documentsApi = {
     formData.append('uploaded_by', uploadedBy)
     if (shortTitle) formData.append('short_title', shortTitle)
     if (notes) formData.append('notes', notes)
+    if (scope) formData.append('scope', JSON.stringify(scope))
 
     const { data } = await apiClient.post<CreateDocumentResponse>(
       projectUrl('/documents/'),

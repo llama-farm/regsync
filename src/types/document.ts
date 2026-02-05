@@ -1,3 +1,5 @@
+import type { PolicyScope } from './location'
+
 export interface PolicyDocument {
   id: string
   name: string
@@ -6,6 +8,7 @@ export interface PolicyDocument {
   created_at: string
   updated_at: string
   created_by?: string
+  scope?: PolicyScope  // Policy visibility scope (defaults to DAF-wide if not set)
 }
 
 export interface DocumentVersion {

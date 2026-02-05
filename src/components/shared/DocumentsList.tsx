@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Search, FileText, Loader2, Calendar, User, ExternalLink, History } from 'lucide-react'
+import { Search, FileText, Loader2, Calendar, User, ExternalLink, History, MapPin } from 'lucide-react'
 import type { PolicyDocument } from '@/types/document'
 import { documentsApi } from '@/api/documentsApi'
 import { DocumentChangesModal } from './DocumentChanges'
+import { usePolicyFilter } from '@/hooks/usePolicyFilter'
+import { scopeLevelLabels } from '@/types/location'
 
 // Build document file URL for direct access
 const getDocumentUrl = (documentId: string): string => {
@@ -18,57 +20,63 @@ const isRealDocument = (docId: string): boolean => {
 const MOCK_DOCUMENTS: PolicyDocument[] = [
   {
     id: 'mock-1',
-    name: 'Employee Handbook v2024',
-    short_title: 'EMP-HB-2024',
+    name: 'DAFI 36-2903 Dress and Personal Appearance',
+    short_title: 'DAFI 36-2903',
     current_version_id: 'v2',
     created_at: '2024-01-15T10:00:00Z',
     updated_at: '2024-06-01T14:30:00Z',
-    created_by: 'Capt. Sarah Mitchell',
+    created_by: 'SAF/PA',
+    scope: { level: 'daf', value: 'DAF' },
   },
   {
     id: 'mock-2',
-    name: 'IT Security Policy',
-    short_title: 'IT-SEC-001',
+    name: 'AETCI 36-2201 Training Administration',
+    short_title: 'AETCI 36-2201',
     current_version_id: 'v3',
     created_at: '2023-08-20T09:00:00Z',
     updated_at: '2025-01-09T11:15:00Z',
-    created_by: 'Maj. Robert Chen',
+    created_by: 'AETC/A1',
+    scope: { level: 'majcom', value: 'AETC' },
   },
   {
     id: 'mock-3',
-    name: 'Travel & Expense Guidelines',
-    short_title: 'FIN-TRV-001',
+    name: 'JBSAI 31-101 Installation Security',
+    short_title: 'JBSAI 31-101',
     current_version_id: 'v1',
     created_at: '2024-03-10T08:00:00Z',
     updated_at: '2024-03-10T08:00:00Z',
-    created_by: 'Lt. Jennifer Walsh',
+    created_by: '502 ABW/CC',
+    scope: { level: 'installation', value: 'JBSA' },
   },
   {
     id: 'mock-4',
-    name: 'Code of Conduct',
-    short_title: 'HR-COC-001',
+    name: '73 MDW Medical Records Management',
+    short_title: '73 MDWI 41-101',
     current_version_id: 'v2',
     created_at: '2023-01-01T00:00:00Z',
     updated_at: '2024-12-15T16:00:00Z',
-    created_by: 'Lt. Col. James Anderson',
+    created_by: '73 MDW/SGH',
+    scope: { level: 'wing', value: '73 MDW' },
   },
   {
     id: 'mock-5',
-    name: 'Data Privacy Procedures',
-    short_title: 'IT-DPP-001',
+    name: 'DAFMAN 17-1301 Computer Security',
+    short_title: 'DAFMAN 17-1301',
     current_version_id: 'v1',
     created_at: '2024-05-15T09:00:00Z',
     updated_at: '2024-05-15T09:00:00Z',
-    created_by: 'Maj. Robert Chen',
+    created_by: 'SAF/CN',
+    scope: { level: 'daf', value: 'DAF' },
   },
   {
     id: 'mock-6',
-    name: 'Emergency Response Protocol',
-    short_title: 'OPS-ERP-001',
+    name: 'DoDI 1300.17 Religious Liberty',
+    short_title: 'DoDI 1300.17',
     current_version_id: 'v3',
     created_at: '2022-06-01T08:00:00Z',
     updated_at: '2024-11-20T14:00:00Z',
-    created_by: 'Col. Michael Davis',
+    created_by: 'USD(P&R)',
+    scope: { level: 'dod', value: 'DoD' },
   },
 ]
 
@@ -77,6 +85,7 @@ export function DocumentsList() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedDoc, setSelectedDoc] = useState<PolicyDocument | null>(null)
+  const { filterPolicy, location } = usePolicyFilter()
 
   useEffect(() => {
     const loadDocuments = async () => {
@@ -100,14 +109,17 @@ export function DocumentsList() {
     loadDocuments()
   }, [])
 
-  const filteredDocuments = documents.filter((doc) => {
-    const query = searchQuery.toLowerCase()
-    return (
-      doc.name.toLowerCase().includes(query) ||
-      doc.short_title?.toLowerCase().includes(query) ||
-      doc.created_by?.toLowerCase().includes(query)
-    )
-  })
+  // First filter by scope (user location), then by search query
+  const filteredDocuments = documents
+    .filter(filterPolicy)
+    .filter((doc) => {
+      const query = searchQuery.toLowerCase()
+      return (
+        doc.name.toLowerCase().includes(query) ||
+        doc.short_title?.toLowerCase().includes(query) ||
+        doc.created_by?.toLowerCase().includes(query)
+      )
+    })
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -168,11 +180,17 @@ export function DocumentsList() {
                       <FileText className="w-5 h-5 text-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <h3 className="font-medium truncate">{doc.name}</h3>
                         {doc.short_title && (
                           <span className="text-xs font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0">
                             {doc.short_title}
+                          </span>
+                        )}
+                        {doc.scope && (
+                          <span className="flex items-center gap-1 text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded shrink-0">
+                            <MapPin className="w-3 h-3" />
+                            {scopeLevelLabels[doc.scope.level]}
                           </span>
                         )}
                       </div>
@@ -220,10 +238,10 @@ export function DocumentsList() {
         </div>
       )}
 
-      {/* Document count */}
+      {/* Document count with location context */}
       {!loading && filteredDocuments.length > 0 && (
         <div className="mt-4 text-sm text-muted-foreground text-center">
-          Showing {filteredDocuments.length} of {documents.length} documents
+          Showing {filteredDocuments.length} documents visible at {location.wing}
         </div>
       )}
 
