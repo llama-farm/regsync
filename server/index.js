@@ -146,6 +146,174 @@ async function uploadToLlamaFarm(filePath, originalName, metadata = {}) {
   }
 }
 
+// Upload text content to LlamaFarm RAG dataset (for change summaries)
+async function uploadTextToLlamaFarm(text, filename) {
+  try {
+    const blob = new Blob([text], { type: 'text/plain' })
+    const formData = new FormData()
+    formData.append('file', blob, filename)
+
+    const url = `${LLAMAFARM_URL}/v1/projects/${LLAMAFARM_NAMESPACE}/${LLAMAFARM_PROJECT}/datasets/${LLAMAFARM_DATASET}/data?auto_process=true`
+
+    const response = await fetch(url, {
+      method: 'POST',
+      body: formData
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`LlamaFarm text upload failed (${response.status}):`, errorText)
+      return { success: false, error: errorText }
+    }
+
+    const result = await response.json()
+    console.log('✓ Text uploaded to LlamaFarm RAG:', filename)
+    return { success: true, result }
+  } catch (error) {
+    console.error('LlamaFarm text upload error:', error.message)
+    return { success: false, error: error.message }
+  }
+}
+
+// Delete change summary from LlamaFarm (by document ID pattern)
+async function deleteChangeSummaryFromLlamaFarm(documentId) {
+  try {
+    const listUrl = `${LLAMAFARM_URL}/v1/projects/${LLAMAFARM_NAMESPACE}/${LLAMAFARM_PROJECT}/datasets/${LLAMAFARM_DATASET}`
+    const listResponse = await fetch(listUrl)
+
+    if (!listResponse.ok) {
+      console.log('Could not list LlamaFarm files for change summary cleanup')
+      return { success: false }
+    }
+
+    const dataset = await listResponse.json()
+    const files = dataset.details?.files_metadata || []
+
+    // Find change summary file for this document (pattern: {documentId}_changes.txt)
+    const summaryFile = files.find(f =>
+      f.original_file_name === `${documentId}_changes.txt` ||
+      f.original_file_name?.includes(`${documentId}_changes`)
+    )
+
+    if (!summaryFile) {
+      console.log('No existing change summary found for document:', documentId)
+      return { success: true } // Not an error
+    }
+
+    // Delete by file hash
+    const deleteUrl = `${LLAMAFARM_URL}/v1/projects/${LLAMAFARM_NAMESPACE}/${LLAMAFARM_PROJECT}/datasets/${LLAMAFARM_DATASET}/data/${summaryFile.hash}`
+    const response = await fetch(deleteUrl, { method: 'DELETE' })
+
+    if (response.ok) {
+      console.log('✓ Old change summary deleted from LlamaFarm:', documentId)
+    }
+    return { success: response.ok }
+  } catch (error) {
+    console.error('Change summary delete error:', error.message)
+    return { success: false, error: error.message }
+  }
+}
+
+// Format compare result into searchable text for RAG
+function formatChangeSummary(docName, shortTitle, compareResult) {
+  const lines = [
+    `DOCUMENT CHANGES: ${docName}`,
+    `Short Title: ${shortTitle || 'N/A'}`,
+    `Updated: ${compareResult.new_version?.created_at || new Date().toISOString()}`,
+    `Updated By: ${compareResult.new_version?.uploaded_by || 'Unknown'}`,
+    '',
+    'SUMMARY OF CHANGES:',
+    compareResult.summary || 'No summary available.',
+    '',
+    'DETAILED CHANGES:'
+  ]
+
+  if (compareResult.changes && compareResult.changes.length > 0) {
+    for (const change of compareResult.changes) {
+      lines.push(`- ${change.type.toUpperCase()}: ${change.section}`)
+      lines.push(`  ${change.summary}`)
+    }
+  } else {
+    lines.push('No detailed changes recorded.')
+  }
+
+  return lines.join('\n')
+}
+
+// Store change summary in LlamaFarm RAG (replaces any existing summary)
+async function storeChangeSummary(documentId, docName, shortTitle, oldVersionId, newVersionId) {
+  try {
+    // Skip if this is the first version (nothing to compare)
+    if (!oldVersionId) {
+      console.log('Skipping change summary - first version, nothing to compare')
+      return { success: true, skipped: true }
+    }
+
+    // Get comparison data by calling the compare logic directly
+    const metadata = loadMetadata()
+    const doc = metadata.documents.find(d => d.id === documentId)
+    if (!doc) {
+      console.log('Document not found for change summary')
+      return { success: false, error: 'Document not found' }
+    }
+
+    const oldVersion = doc.versions.find(v => v.id === oldVersionId)
+    const newVersion = doc.versions.find(v => v.id === newVersionId)
+
+    if (!oldVersion || !newVersion) {
+      console.log('Versions not found for change summary')
+      return { success: false, error: 'Versions not found' }
+    }
+
+    // Extract text from both PDFs
+    const oldFilePath = path.join(POLICIES_DIR, oldVersion.filename)
+    const newFilePath = path.join(POLICIES_DIR, newVersion.filename)
+
+    if (!fs.existsSync(oldFilePath) || !fs.existsSync(newFilePath)) {
+      console.log('PDF files not found for change summary')
+      return { success: false, error: 'PDF files not found' }
+    }
+
+    const [oldText, newText] = await Promise.all([
+      extractPdfText(oldFilePath),
+      extractPdfText(newFilePath)
+    ])
+
+    if (!oldText || !newText) {
+      console.log('Could not extract PDF text for change summary')
+      return { success: false, error: 'PDF extraction failed' }
+    }
+
+    // Compute diff and generate summary
+    const changes = computeTextDiff(oldText, newText)
+    const summary = await generateChangeSummary(changes, docName)
+
+    const compareResult = {
+      summary,
+      changes,
+      new_version: newVersion,
+      old_version: oldVersion
+    }
+
+    // Delete any existing change summary for this document
+    await deleteChangeSummaryFromLlamaFarm(documentId)
+
+    // Format and upload new summary
+    const summaryText = formatChangeSummary(docName, shortTitle, compareResult)
+    const filename = `${documentId}_changes.txt`
+    const uploadResult = await uploadTextToLlamaFarm(summaryText, filename)
+
+    if (uploadResult.success) {
+      console.log('✓ Change summary stored in RAG for document:', docName)
+    }
+
+    return uploadResult
+  } catch (error) {
+    console.error('Store change summary error:', error.message)
+    return { success: false, error: error.message }
+  }
+}
+
 // Serve policy PDF files directly by filename
 // This allows the DocumentViewer to access PDFs using just the filename from RAG results
 app.get('/v1/projects/:namespace/:project/policies/:filename', (req, res) => {
@@ -300,6 +468,9 @@ app.post('/v1/projects/:namespace/:project/documents/:documentId/versions/:versi
   const version = doc.versions[versionIndex]
   const now = new Date().toISOString()
 
+  // Capture previous version ID before updating (for change summary)
+  const previousVersionId = doc.current_version_id
+
   // Update version status
   metadata.documents[docIndex].versions[versionIndex].status = 'published'
   metadata.documents[docIndex].current_version_id = req.params.versionId
@@ -322,11 +493,25 @@ app.post('/v1/projects/:namespace/:project/documents/:documentId/versions/:versi
     document_id: req.params.documentId
   })
 
+  // Store change summary in RAG (replaces any existing summary for this document)
+  // This enables chat to answer "what changed" questions
+  let changeSummaryResult = { success: false, skipped: true }
+  if (llamaResult.success && previousVersionId) {
+    changeSummaryResult = await storeChangeSummary(
+      req.params.documentId,
+      doc.name,
+      doc.short_title,
+      previousVersionId,
+      req.params.versionId
+    )
+  }
+
   res.json({
     message: 'Version approved and published',
     version: metadata.documents[docIndex].versions[versionIndex],
     rag_status: llamaResult.success ? 'processed' : 'pending',
-    rag_cleanup: deleteResult.success ? 'completed' : 'failed'
+    rag_cleanup: deleteResult.success ? 'completed' : 'failed',
+    change_summary: changeSummaryResult.success ? 'stored' : (changeSummaryResult.skipped ? 'skipped' : 'failed')
   })
 })
 

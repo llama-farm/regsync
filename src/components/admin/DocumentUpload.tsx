@@ -246,14 +246,26 @@ export function DocumentUpload() {
     }
   }
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!uploadedDoc) return
 
-    toast.success(uploadedDoc.isUpdate ? 'Version uploaded!' : 'Document published!', {
-      description: `${uploadedDoc.name} is now available to users.`,
-    })
+    try {
+      // For updates, call approve endpoint to publish to LlamaFarm
+      if (uploadedDoc.isUpdate) {
+        await documentsApi.approveVersion(uploadedDoc.id, uploadedDoc.versionId)
+      }
 
-    navigate('/admin')
+      toast.success(uploadedDoc.isUpdate ? 'Version published!' : 'Document published!', {
+        description: `${uploadedDoc.name} is now available to users.`,
+      })
+
+      navigate('/admin')
+    } catch (err) {
+      console.error('Publish failed:', err)
+      toast.error('Failed to publish', {
+        description: err instanceof Error ? err.message : 'An error occurred',
+      })
+    }
   }
 
   const handleCancel = () => {
