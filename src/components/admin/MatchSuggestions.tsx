@@ -1,7 +1,13 @@
-import { FileText, ArrowRight, Plus, Zap, Hash, Calendar } from 'lucide-react'
+import { useState } from 'react'
+import { FileText, ArrowRight, Plus, Zap, Hash, Calendar, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { DocumentMatch, MatchDetectionResult } from '@/types/match'
 import { getConfidenceColor } from '@/types/match'
+
+type Selection =
+  | { type: 'match'; match: DocumentMatch }
+  | { type: 'new' }
+  | null
 
 interface MatchSuggestionsProps {
   result: MatchDetectionResult
@@ -19,6 +25,7 @@ export function MatchSuggestions({
   onCancel
 }: MatchSuggestionsProps) {
   const { matches, extracted_title, extracted_doc_number } = result
+  const [selection, setSelection] = useState<Selection>(null)
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -27,6 +34,20 @@ export function MatchSuggestions({
       year: 'numeric',
     })
   }
+
+  const handleContinue = () => {
+    if (!selection) return
+    if (selection.type === 'match') {
+      onSelectMatch(selection.match)
+    } else {
+      onCreateNew()
+    }
+  }
+
+  const isMatchSelected = (matchId: string) =>
+    selection?.type === 'match' && selection.match.document.id === matchId
+
+  const isNewSelected = selection?.type === 'new'
 
   return (
     <div className="space-y-6">
@@ -70,7 +91,8 @@ export function MatchSuggestions({
           <MatchCard
             key={match.document.id}
             match={match}
-            onSelect={() => onSelectMatch(match)}
+            isSelected={isMatchSelected(match.document.id)}
+            onSelect={() => setSelection({ type: 'match', match })}
             formatDate={formatDate}
           />
         ))}
@@ -79,12 +101,24 @@ export function MatchSuggestions({
       {/* Create new option */}
       <div className="border-t border-border pt-4">
         <button
-          onClick={onCreateNew}
-          className="w-full flex items-center justify-between p-4 bg-card border border-border rounded-lg hover:border-primary/50 transition-colors group"
+          onClick={() => setSelection({ type: 'new' })}
+          className={cn(
+            "w-full flex items-center justify-between p-4 bg-card border-2 rounded-lg transition-colors group",
+            isNewSelected
+              ? "border-primary bg-primary/5"
+              : "border-border hover:border-primary/50"
+          )}
         >
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <Plus className="w-5 h-5 text-primary" />
+            <div className={cn(
+              "p-2 rounded-lg transition-colors",
+              isNewSelected ? "bg-primary text-primary-foreground" : "bg-primary/10"
+            )}>
+              {isNewSelected ? (
+                <Check className="w-5 h-5" />
+              ) : (
+                <Plus className="w-5 h-5 text-primary" />
+              )}
             </div>
             <div className="text-left">
               <p className="font-medium">Create as New Document</p>
@@ -93,28 +127,46 @@ export function MatchSuggestions({
               </p>
             </div>
           </div>
-          <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+          {isNewSelected && (
+            <span className="text-sm text-primary font-medium">Selected</span>
+          )}
         </button>
       </div>
 
-      {/* Cancel */}
-      <button
-        onClick={onCancel}
-        className="w-full py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-      >
-        Cancel Upload
-      </button>
+      {/* Action buttons */}
+      <div className="flex gap-3 pt-2">
+        <button
+          onClick={onCancel}
+          className="flex-1 py-3 text-sm text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-accent transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleContinue}
+          disabled={!selection}
+          className={cn(
+            "flex-1 py-3 text-sm font-medium rounded-md transition-colors flex items-center justify-center gap-2",
+            selection
+              ? "bg-primary text-primary-foreground hover:bg-primary/90"
+              : "bg-muted text-muted-foreground cursor-not-allowed"
+          )}
+        >
+          Continue
+          <ArrowRight className="w-4 h-4" />
+        </button>
+      </div>
     </div>
   )
 }
 
 interface MatchCardProps {
   match: DocumentMatch
+  isSelected: boolean
   onSelect: () => void
   formatDate: (date: string) => string
 }
 
-function MatchCard({ match, onSelect, formatDate }: MatchCardProps) {
+function MatchCard({ match, isSelected, onSelect, formatDate }: MatchCardProps) {
   const confidenceColors = getConfidenceColor(match.confidence)
 
   // Get signal icons
@@ -141,11 +193,23 @@ function MatchCard({ match, onSelect, formatDate }: MatchCardProps) {
   return (
     <button
       onClick={onSelect}
-      className="w-full text-left p-4 bg-card border border-border rounded-lg hover:border-primary transition-colors group"
+      className={cn(
+        "w-full text-left p-4 bg-card border-2 rounded-lg transition-colors group",
+        isSelected
+          ? "border-primary bg-primary/5"
+          : "border-border hover:border-primary/50"
+      )}
     >
       <div className="flex items-start gap-4">
-        <div className="p-2 bg-accent rounded-lg">
-          <FileText className="w-5 h-5 text-muted-foreground" />
+        <div className={cn(
+          "p-2 rounded-lg transition-colors",
+          isSelected ? "bg-primary text-primary-foreground" : "bg-accent"
+        )}>
+          {isSelected ? (
+            <Check className="w-5 h-5" />
+          ) : (
+            <FileText className="w-5 h-5 text-muted-foreground" />
+          )}
         </div>
 
         <div className="flex-1 min-w-0">
@@ -184,8 +248,11 @@ function MatchCard({ match, onSelect, formatDate }: MatchCardProps) {
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
-          <span className="text-xs text-muted-foreground">Update this</span>
-          <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+          {isSelected ? (
+            <span className="text-sm text-primary font-medium">Selected</span>
+          ) : (
+            <span className="text-xs text-muted-foreground">Select</span>
+          )}
         </div>
       </div>
     </button>
