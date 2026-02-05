@@ -38,7 +38,6 @@ export function DocumentUpload() {
   const [file, setFile] = useState<File | null>(null)
   const [name, setName] = useState('')
   const [shortTitle, setShortTitle] = useState('')
-  const [notes, setNotes] = useState('')
   const [scope, setScope] = useState<PolicyScope | null>(existingDocument?.scope ?? null)
   const [status, setStatus] = useState<UploadStatus>('idle')
   const [dragActive, setDragActive] = useState(false)
@@ -116,7 +115,7 @@ export function DocumentUpload() {
 
       if (isUpdate && existingDocument) {
         // Upload new version of existing document
-        const response = await documentsApi.uploadVersion(existingDocument.id, file, uploadedBy, notes || undefined)
+        const response = await documentsApi.uploadVersion(existingDocument.id, file, uploadedBy)
         setStatus('processing')
         await new Promise((resolve) => setTimeout(resolve, 500))
 
@@ -179,7 +178,7 @@ export function DocumentUpload() {
       name,
       uploadedBy,
       shortTitle || undefined,
-      notes || undefined,
+      undefined,
       scope
     )
 
@@ -207,7 +206,7 @@ export function DocumentUpload() {
     const uploadedBy = adminUser?.name || 'Unknown'
 
     try {
-      const response = await documentsApi.uploadVersion(match.document.id, file, uploadedBy, notes || undefined)
+      const response = await documentsApi.uploadVersion(match.document.id, file, uploadedBy)
       setStatus('processing')
       await new Promise((resolve) => setTimeout(resolve, 500))
 
@@ -375,12 +374,6 @@ export function DocumentUpload() {
                   <span className="text-muted-foreground">Status</span>
                   <span className="text-amber-500 font-medium">Pending Review</span>
                 </div>
-                {notes && (
-                  <div className="pt-2">
-                    <span className="text-sm text-muted-foreground">Notes:</span>
-                    <p className="text-sm mt-1">{notes}</p>
-                  </div>
-                )}
               </div>
             </div>
 
@@ -554,24 +547,6 @@ export function DocumentUpload() {
             </div>
           </>
         )}
-
-        {/* Notes */}
-        <div>
-          <label className="block text-sm font-medium mb-1.5">
-            {isUpdate ? 'Version Notes' : 'Notes (optional)'}
-          </label>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder={
-              isUpdate
-                ? 'Describe the changes in this version...'
-                : 'Add any notes about this document...'
-            }
-            rows={3}
-            className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring resize-none"
-          />
-        </div>
 
         {/* Scope selection (only for new documents) */}
         {!isUpdate && (
