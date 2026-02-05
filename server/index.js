@@ -69,19 +69,36 @@ function saveMetadata(data) {
   fs.writeFileSync(METADATA_FILE, JSON.stringify(data, null, 2))
 }
 
-// Delete old document chunks from LlamaFarm RAG dataset
-async function deleteFromLlamaFarm(documentId) {
+// Delete file from LlamaFarm RAG dataset by filename
+async function deleteFromLlamaFarm(filename) {
   try {
-    // Delete by document_id metadata filter
-    const url = `${LLAMAFARM_URL}/v1/projects/${LLAMAFARM_NAMESPACE}/${LLAMAFARM_PROJECT}/datasets/${LLAMAFARM_DATASET}/data`
+    // First, get the file hash from LlamaFarm by looking up the filename
+    const listUrl = `${LLAMAFARM_URL}/v1/projects/${LLAMAFARM_NAMESPACE}/${LLAMAFARM_PROJECT}/datasets/${LLAMAFARM_DATASET}`
+    const listResponse = await fetch(listUrl)
 
-    const response = await fetch(url, {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        filter: { document_id: documentId }
-      })
-    })
+    if (!listResponse.ok) {
+      console.error('Failed to list LlamaFarm files')
+      return { success: false, error: 'Failed to list files' }
+    }
+
+    const dataset = await listResponse.json()
+    const files = dataset.details?.files_metadata || []
+
+    // Find the file by matching the filename (it might have timestamp prefix)
+    const file = files.find(f =>
+      f.original_file_name === filename ||
+      f.original_file_name.endsWith(filename) ||
+      filename.endsWith(f.original_file_name.replace(/^\d+-/, ''))
+    )
+
+    if (!file) {
+      console.log('File not found in LlamaFarm:', filename)
+      return { success: true } // Not an error if file doesn't exist
+    }
+
+    // Delete by file hash
+    const deleteUrl = `${LLAMAFARM_URL}/v1/projects/${LLAMAFARM_NAMESPACE}/${LLAMAFARM_PROJECT}/datasets/${LLAMAFARM_DATASET}/data/${file.hash}`
+    const response = await fetch(deleteUrl, { method: 'DELETE' })
 
     if (!response.ok) {
       const errorText = await response.text()
@@ -89,7 +106,7 @@ async function deleteFromLlamaFarm(documentId) {
       return { success: false, error: errorText }
     }
 
-    console.log('✓ Old document chunks deleted from LlamaFarm RAG:', documentId)
+    console.log('✓ File deleted from LlamaFarm RAG:', filename)
     return { success: true }
   } catch (error) {
     console.error('LlamaFarm delete error:', error.message)
@@ -405,9 +422,10 @@ app.delete('/v1/projects/:namespace/:project/documents/:documentId', async (req,
   const doc = metadata.documents[docIndex]
   for (const version of doc.versions) {
     const filePath = path.join(POLICIES_DIR, version.filename)
+    // Try to delete from LlamaFarm RAG (by filename)
+    await deleteFromLlamaFarm(version.filename)
+    // Delete local file
     if (fs.existsSync(filePath)) {
-      // Try to delete from LlamaFarm RAG
-      await deleteFromLlamaFarm(doc.id)
       fs.unlinkSync(filePath)
     }
   }
