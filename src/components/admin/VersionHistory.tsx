@@ -243,7 +243,7 @@ export function VersionHistory() {
                     <Eye className="w-3.5 h-3.5" />
                     View
                   </button>
-                  {!isCurrent && isAdmin && version.status !== 'pending' && (
+                  {!isCurrent && isAdmin && (
                     <button
                       onClick={() => handleRevert(version.id)}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-primary bg-primary/10 hover:bg-primary/20 rounded-md transition-colors"
