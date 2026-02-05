@@ -163,7 +163,7 @@ export const chatApi = {
 
       // Get the current version and try to detect changes
       const currentVersion = sortedVersions[sortedVersions.length - 1]
-      const previousVersion = sortedVersions[sortedVersions.length - 2]
+      // Previous version available if needed: sortedVersions[sortedVersions.length - 2]
 
       try {
         // Try to get changes using the detect-changes API

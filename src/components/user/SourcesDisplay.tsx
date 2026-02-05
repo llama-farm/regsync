@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FileText, ChevronDown, ChevronRight, ExternalLink, Eye, Hash, Calendar, User } from 'lucide-react'
+import { FileText, ChevronDown, ChevronRight, Eye, Hash, Calendar, User } from 'lucide-react'
 import type { CitedSource } from '@/types/chat'
 import { cn } from '@/lib/utils'
 

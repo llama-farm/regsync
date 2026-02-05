@@ -134,10 +134,9 @@ export function PolicyAssistant() {
     return confidence !== null && confidence < 50
   }
 
-  // Handle clicking on a document to ask about it
-  // Uses regular RAG search (document diff feature removed - can revisit later)
+  // Handle clicking on a document to ask about latest updates
   const handleDocumentClick = (_documentId: string, documentName: string) => {
-    handleSend(`What are the key points in ${documentName}?`)
+    handleSend(`What are the latest updates in ${documentName}?`)
   }
 
   // Handle feedback click

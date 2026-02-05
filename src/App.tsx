@@ -22,7 +22,7 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 
 // Main app with routing
 function AppRoutes() {
-  const { isAuthenticated, isAdmin } = useAuth()
+  const { isAuthenticated } = useAuth()
   const navigate = useNavigate()
   const wasAuthenticatedRef = useRef(isAuthenticated)
 

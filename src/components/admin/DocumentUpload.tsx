@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import type { PolicyDocument } from '@/types/document'
 import { documentsApi } from '@/api/documentsApi'
 import { useAuth } from '@/contexts/AuthContext'
+import { UploadDiffPreview } from './UploadDiffPreview'
 
 type UploadStatus = 'idle' | 'uploading' | 'processing' | 'confirm' | 'publishing' | 'error'
 
@@ -23,7 +24,7 @@ interface UploadedDocInfo {
 export function DocumentUpload() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { user } = useAuth()
+  const { adminUser } = useAuth()
   // Now receiving full document object instead of just ID
   const existingDocument = location.state?.document as PolicyDocument | undefined
   const isUpdate = !!existingDocument
@@ -82,7 +83,7 @@ export function DocumentUpload() {
     setErrorMessage(null)
 
     try {
-      const uploadedBy = user?.name || 'Unknown'
+      const uploadedBy = adminUser?.name || 'Unknown'
 
       if (isUpdate && existingDocument) {
         // Upload new version of existing document
@@ -175,10 +176,37 @@ export function DocumentUpload() {
     return (bytes / 1024 / 1024).toFixed(2) + ' MB'
   }
 
-  // Confirmation step - show document preview
+  // Confirmation step - show document preview or diff preview for updates
   if (status === 'confirm' && uploadedDoc) {
     const previewUrl = `/api/projects/default/regsync/documents/${uploadedDoc.id}/file`
 
+    // Show diff preview for updates (when we have both version IDs)
+    if (uploadedDoc.isUpdate && uploadedDoc.previousVersionId) {
+      return (
+        <div className="max-w-4xl mx-auto">
+          <div className="mb-6">
+            <button
+              onClick={handleCancel}
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Upload
+            </button>
+          </div>
+
+          <UploadDiffPreview
+            documentId={uploadedDoc.id}
+            documentName={uploadedDoc.name}
+            oldVersionId={uploadedDoc.previousVersionId}
+            newVersionId={uploadedDoc.versionId}
+            onConfirm={handleConfirm}
+            onCancel={handleCancel}
+          />
+        </div>
+      )
+    }
+
+    // Standard preview for new documents
     return (
       <div className="max-w-6xl mx-auto">
         <div className="mb-6">
@@ -193,7 +221,7 @@ export function DocumentUpload() {
             Review & Confirm
           </h1>
           <p className="text-muted-foreground">
-            Review the uploaded document before {uploadedDoc.isUpdate ? 'submitting for approval' : 'publishing'}
+            Review the uploaded document before publishing
           </p>
         </div>
 
@@ -226,12 +254,6 @@ export function DocumentUpload() {
                   <span className="text-muted-foreground">Status</span>
                   <span className="text-amber-500 font-medium">Pending Review</span>
                 </div>
-                {uploadedDoc.isUpdate && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Type</span>
-                    <span>New Version</span>
-                  </div>
-                )}
                 {notes && (
                   <div className="pt-2">
                     <span className="text-sm text-muted-foreground">Notes:</span>

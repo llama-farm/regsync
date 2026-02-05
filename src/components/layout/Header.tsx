@@ -73,10 +73,10 @@ export function Header() {
           {!isAuthenticated && (
             <button
               onClick={() => setShowSignInModal(true)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium hover:bg-accent transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded border border-border text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
             >
-              <Shield className="w-4 h-4" />
-              Admin
+              <Shield className="w-3 h-3" />
+              Admin access
             </button>
           )}
 

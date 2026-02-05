@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Search, FileText, Loader2, Calendar, User, ExternalLink } from 'lucide-react'
+import { Search, FileText, Loader2, Calendar, User, ExternalLink, History } from 'lucide-react'
 import type { PolicyDocument } from '@/types/document'
 import { documentsApi } from '@/api/documentsApi'
+import { DocumentChangesModal } from './DocumentChanges'
 
 // Build document file URL for direct access
 const getDocumentUrl = (documentId: string): string => {
@@ -75,6 +76,7 @@ export function DocumentsList() {
   const [documents, setDocuments] = useState<PolicyDocument[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedDoc, setSelectedDoc] = useState<PolicyDocument | null>(null)
 
   useEffect(() => {
     const loadDocuments = async () => {
@@ -153,21 +155,12 @@ export function DocumentsList() {
           ) : (
             filteredDocuments.map((doc) => {
               const isReal = isRealDocument(doc.id)
-              const CardWrapper = isReal ? 'a' : 'div'
-              const cardProps = isReal
-                ? {
-                    href: getDocumentUrl(doc.id),
-                    target: '_blank',
-                    rel: 'noopener noreferrer',
-                  }
-                : {}
 
               return (
-                <CardWrapper
+                <div
                   key={doc.id}
-                  {...cardProps}
-                  className={`bg-card border border-border rounded-lg p-4 hover:border-primary/50 transition-colors block ${
-                    isReal ? 'cursor-pointer group' : 'opacity-60'
+                  className={`bg-card border border-border rounded-lg p-4 hover:border-primary/50 transition-colors ${
+                    !isReal && 'opacity-60'
                   }`}
                 >
                   <div className="flex items-start gap-4">
@@ -181,9 +174,6 @@ export function DocumentsList() {
                           <span className="text-xs font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0">
                             {doc.short_title}
                           </span>
-                        )}
-                        {isReal && (
-                          <ExternalLink className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                         )}
                       </div>
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
@@ -199,8 +189,31 @@ export function DocumentsList() {
                         )}
                       </div>
                     </div>
+                    {/* Action buttons */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {isReal && (
+                        <>
+                          <button
+                            onClick={() => setSelectedDoc(doc)}
+                            className="p-2 hover:bg-accent rounded-md transition-colors"
+                            title="View Changes"
+                          >
+                            <History className="w-4 h-4 text-muted-foreground" />
+                          </button>
+                          <a
+                            href={getDocumentUrl(doc.id)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-2 hover:bg-accent rounded-md transition-colors"
+                            title="Open Document"
+                          >
+                            <ExternalLink className="w-4 h-4 text-muted-foreground" />
+                          </a>
+                        </>
+                      )}
+                    </div>
                   </div>
-                </CardWrapper>
+                </div>
               )
             })
           )}
@@ -212,6 +225,16 @@ export function DocumentsList() {
         <div className="mt-4 text-sm text-muted-foreground text-center">
           Showing {filteredDocuments.length} of {documents.length} documents
         </div>
+      )}
+
+      {/* Document Changes Modal */}
+      {selectedDoc && (
+        <DocumentChangesModal
+          isOpen={!!selectedDoc}
+          onClose={() => setSelectedDoc(null)}
+          documentId={selectedDoc.id}
+          documentName={selectedDoc.name}
+        />
       )}
     </div>
   )
