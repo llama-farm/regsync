@@ -85,6 +85,48 @@ interface ChatCompletionResponse {
 import { documentsApi } from './documentsApi'
 
 export const chatApi = {
+  // Enrich sources with document metadata from local documents API
+  async enrichSourcesWithDocumentInfo(sources: CitedSource[]): Promise<CitedSource[]> {
+    if (sources.length === 0) return sources
+
+    try {
+      // Get all documents to build a lookup map
+      const { documents } = await documentsApi.listDocuments()
+
+      // Build filename -> document info map
+      const docInfoMap = new Map<string, { updated_at: string; updated_by: string }>()
+      for (const doc of documents) {
+        // Store by document name (which matches the filename pattern)
+        docInfoMap.set(doc.name, {
+          updated_at: doc.updated_at,
+          updated_by: 'Policy Administrator', // Default since we don't store uploader in doc
+        })
+      }
+
+      // Enrich each source with document info
+      return sources.map(source => {
+        const filename = source.filename || source.source || ''
+        // Try to match by partial filename (remove timestamp prefix)
+        const cleanName = filename.replace(/^\d{13}-/, '').replace(/\.pdf$/i, '')
+
+        // Find matching document
+        for (const [docName, info] of docInfoMap) {
+          if (docName.includes(cleanName) || cleanName.includes(docName.replace(/\.pdf$/i, ''))) {
+            return {
+              ...source,
+              updated_at: source.updated_at || info.updated_at,
+              updated_by: source.updated_by || info.updated_by,
+            }
+          }
+        }
+        return source
+      })
+    } catch (err) {
+      console.warn('Failed to enrich sources with document info:', err)
+      return sources
+    }
+  },
+
   // Query about changes in a specific document
   // Uses version comparison instead of general RAG search
   async queryDocumentChanges(
@@ -258,7 +300,10 @@ export const chatApi = {
       source: result.metadata?.source as string | undefined,
     }))
 
-    return { answer, sources }
+    // Enrich sources with document metadata (updated_at, updated_by) from documents API
+    const enrichedSources = await this.enrichSourcesWithDocumentInfo(sources)
+
+    return { answer, sources: enrichedSources }
   },
 
   // Search documents (RAG query wrapper for simple searches)
