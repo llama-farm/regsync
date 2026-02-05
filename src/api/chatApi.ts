@@ -112,6 +112,7 @@ export const chatApi = {
     sources: CitedSource[]
   }> {
     const ragEnabled = options?.ragEnabled ?? true
+    const userQuery = messages.filter(m => m.role === 'user').pop()?.content || ''
 
     // Prepend system prompt if not already present
     const hasSystemPrompt = messages.some(m => m.role === 'system')
@@ -119,7 +120,19 @@ export const chatApi = {
       ? messages
       : [{ role: 'system' as const, content: POLICY_SYSTEM_PROMPT }, ...messages]
 
-    const { data } = await apiClient.post<ChatCompletionResponse>(
+    // Run RAG query in parallel with chat to get sources
+    // LlamaFarm chat API uses RAG internally but doesn't return source metadata
+    const ragPromise = ragEnabled
+      ? this.ragQuery({
+          query: userQuery,
+          database: options?.database || DATASET,
+          top_k: 5,
+          retrieval_strategy: 'hybrid',
+          embedding_strategy: EMBEDDING_STRATEGY,
+        }).catch(() => null)
+      : Promise.resolve(null)
+
+    const chatPromise = apiClient.post<ChatCompletionResponse>(
       projectUrl('/chat/completions'),
       {
         messages: messagesWithSystem,
@@ -134,22 +147,29 @@ export const chatApi = {
           rag_top_k: 8,
           rag_retrieval_strategy: 'hybrid',
         }),
-        // Request RAG sources to be included in response
-        include_sources: ragEnabled,
       }
     )
 
-    const answer = data.choices[0]?.message?.content || ''
-    const sources: CitedSource[] = (data.rag_context || []).map((result) => ({
+    // Wait for both to complete
+    const [ragResult, chatResult] = await Promise.all([ragPromise, chatPromise])
+
+    const answer = chatResult.data.choices[0]?.message?.content || ''
+
+    // Map RAG results to sources
+    const sources: CitedSource[] = (ragResult?.results || []).map((result) => ({
       content: result.content,
       score: result.score,
       metadata: result.metadata,
       chunk_id: result.chunk_id,
       document_id: result.document_id,
       version_id: result.version_id,
-      section: result.section,
+      section: result.section || (result.metadata?.page_number ? `Page ${result.metadata.page_number}` : undefined),
       updated_at: result.updated_at,
       updated_by: result.updated_by,
+      // Extract additional fields from LlamaFarm metadata
+      filename: (result.metadata?.filename || result.metadata?.source) as string | undefined,
+      page_number: result.metadata?.page_number as number | undefined,
+      source: result.metadata?.source as string | undefined,
     }))
 
     return { answer, sources }
@@ -173,9 +193,13 @@ export const chatApi = {
       chunk_id: result.chunk_id,
       document_id: result.document_id,
       version_id: result.version_id,
-      section: result.section,
+      section: result.section || (result.metadata?.page_number ? `Page ${result.metadata.page_number}` : undefined),
       updated_at: result.updated_at,
       updated_by: result.updated_by,
+      // Extract additional fields from LlamaFarm metadata
+      filename: (result.metadata?.filename || result.metadata?.source) as string | undefined,
+      page_number: result.metadata?.page_number as number | undefined,
+      source: result.metadata?.source as string | undefined,
     }))
   },
 }

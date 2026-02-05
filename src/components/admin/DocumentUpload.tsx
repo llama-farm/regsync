@@ -1,20 +1,31 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Upload, FileText, X, Loader2, CheckCircle, Calendar, Hash, AlertCircle } from 'lucide-react'
+import { Upload, FileText, X, Loader2, Calendar, Hash, AlertCircle, Check, ArrowLeft, Eye } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { PolicyDocument } from '@/types/document'
 import { documentsApi } from '@/api/documentsApi'
 import { useAuth } from '@/contexts/AuthContext'
 
-type UploadStatus = 'idle' | 'uploading' | 'processing' | 'success' | 'error'
+type UploadStatus = 'idle' | 'uploading' | 'processing' | 'confirm' | 'publishing' | 'error'
+
+interface UploadedDocInfo {
+  id: string
+  name: string
+  shortTitle: string | null
+  versionId: string
+  filename: string
+  size: number
+  isUpdate: boolean
+  previousVersionId?: string
+}
 
 export function DocumentUpload() {
   const navigate = useNavigate()
   const location = useLocation()
   const { user } = useAuth()
   // Now receiving full document object instead of just ID
-  const document = location.state?.document as PolicyDocument | undefined
-  const isUpdate = !!document
+  const existingDocument = location.state?.document as PolicyDocument | undefined
+  const isUpdate = !!existingDocument
 
   const [file, setFile] = useState<File | null>(null)
   const [name, setName] = useState('')
@@ -23,6 +34,8 @@ export function DocumentUpload() {
   const [status, setStatus] = useState<UploadStatus>('idle')
   const [dragActive, setDragActive] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [uploadedDoc, setUploadedDoc] = useState<UploadedDocInfo | null>(null)
+  const previousVersionId = useRef<string | null>(existingDocument?.current_version_id || null)
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -70,21 +83,27 @@ export function DocumentUpload() {
     try {
       const uploadedBy = user?.name || 'Unknown'
 
-      if (isUpdate && document) {
+      if (isUpdate && existingDocument) {
         // Upload new version of existing document
-        setStatus('uploading')
-        await documentsApi.uploadVersion(document.id, file, uploadedBy, notes || undefined)
+        const response = await documentsApi.uploadVersion(existingDocument.id, file, uploadedBy, notes || undefined)
         setStatus('processing')
+        await new Promise((resolve) => setTimeout(resolve, 500))
 
-        // Trigger change detection
-        // Note: This happens automatically on the server after upload
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-
-        setStatus('success')
+        // Store uploaded doc info and move to confirm step
+        setUploadedDoc({
+          id: existingDocument.id,
+          name: existingDocument.name,
+          shortTitle: existingDocument.short_title,
+          versionId: response.version.id,
+          filename: response.version.filename || response.version.file_name || file.name,
+          size: response.version.size || response.version.file_size || file.size,
+          isUpdate: true,
+          previousVersionId: previousVersionId.current || undefined
+        })
+        setStatus('confirm')
       } else {
         // Create new document
-        setStatus('uploading')
-        await documentsApi.createDocument(
+        const response = await documentsApi.createDocument(
           file,
           name,
           uploadedBy,
@@ -92,22 +111,44 @@ export function DocumentUpload() {
           notes || undefined
         )
         setStatus('processing')
+        await new Promise((resolve) => setTimeout(resolve, 500))
 
-        // Document processing happens on the server
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-
-        setStatus('success')
+        // Store uploaded doc info and move to confirm step
+        setUploadedDoc({
+          id: response.document.id,
+          name: response.document.name,
+          shortTitle: response.document.short_title,
+          versionId: response.version.id,
+          filename: response.version.filename || response.version.file_name || file.name,
+          size: response.version.size || response.version.file_size || file.size,
+          isUpdate: false
+        })
+        setStatus('confirm')
       }
-
-      // Redirect after success
-      setTimeout(() => {
-        navigate('/admin')
-      }, 1500)
     } catch (err) {
       console.error('Upload failed:', err)
       setStatus('error')
-      setErrorMessage(err instanceof Error ? err.message : 'Upload failed. Make sure LlamaFarm server is running.')
+      setErrorMessage(err instanceof Error ? err.message : 'Upload failed. Make sure the server is running.')
     }
+  }
+
+  const handleConfirm = () => {
+    if (!uploadedDoc) return
+
+    if (uploadedDoc.isUpdate && uploadedDoc.previousVersionId) {
+      // For updates, go to the diff review page
+      navigate(`/review/${uploadedDoc.id}/${uploadedDoc.previousVersionId}`)
+    } else {
+      // For new documents, go back to admin dashboard
+      navigate('/admin')
+    }
+  }
+
+  const handleCancel = () => {
+    // Reset to upload form
+    setStatus('idle')
+    setUploadedDoc(null)
+    setFile(null)
   }
 
   const formatDate = (dateString: string) => {
@@ -118,6 +159,121 @@ export function DocumentUpload() {
     })
   }
 
+  const formatFileSize = (bytes: number) => {
+    return (bytes / 1024 / 1024).toFixed(2) + ' MB'
+  }
+
+  // Confirmation step - show document preview
+  if (status === 'confirm' && uploadedDoc) {
+    const previewUrl = `/api/projects/default/regsync/documents/${uploadedDoc.id}/file`
+
+    return (
+      <div className="max-w-6xl mx-auto">
+        <div className="mb-6">
+          <button
+            onClick={handleCancel}
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Upload
+          </button>
+          <h1 className="text-2xl font-semibold font-display">
+            Review & Confirm
+          </h1>
+          <p className="text-muted-foreground">
+            Review the uploaded document before {uploadedDoc.isUpdate ? 'submitting for approval' : 'publishing'}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Left side - Document info */}
+          <div className="space-y-4">
+            {/* Document metadata card */}
+            <div className="bg-card border border-border rounded-lg p-5">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-primary/10 rounded-lg">
+                  <FileText className="w-6 h-6 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <h2 className="font-semibold text-lg font-display">{uploadedDoc.name}</h2>
+                  {uploadedDoc.shortTitle && (
+                    <div className="flex items-center gap-1.5 mt-1 text-sm text-muted-foreground">
+                      <Hash className="w-3.5 h-3.5" />
+                      <span className="font-mono">{uploadedDoc.shortTitle}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-border space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">File size</span>
+                  <span>{formatFileSize(uploadedDoc.size)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Status</span>
+                  <span className="text-amber-500 font-medium">Pending Review</span>
+                </div>
+                {uploadedDoc.isUpdate && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Type</span>
+                    <span>New Version</span>
+                  </div>
+                )}
+                {notes && (
+                  <div className="pt-2">
+                    <span className="text-sm text-muted-foreground">Notes:</span>
+                    <p className="text-sm mt-1">{notes}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={handleConfirm}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors font-medium"
+              >
+                <Check className="w-4 h-4" />
+                {uploadedDoc.isUpdate ? 'Review Changes' : 'Confirm & Publish'}
+              </button>
+              <button
+                onClick={handleCancel}
+                className="flex items-center justify-center gap-2 px-6 py-3 border border-border rounded-md hover:bg-accent transition-colors"
+              >
+                <X className="w-4 h-4" />
+                Cancel
+              </button>
+            </div>
+
+            {uploadedDoc.isUpdate && (
+              <p className="text-xs text-muted-foreground text-center">
+                You'll be able to compare changes with the previous version before publishing.
+              </p>
+            )}
+          </div>
+
+          {/* Right side - PDF preview */}
+          <div className="bg-card border border-border rounded-lg overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-muted/30">
+              <Eye className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Document Preview</span>
+            </div>
+            <div className="h-[600px]">
+              <iframe
+                src={previewUrl}
+                className="w-full h-full"
+                title="Document Preview"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Upload form
   return (
     <div className="max-w-2xl mx-auto">
       <div className="mb-6">
@@ -132,29 +288,26 @@ export function DocumentUpload() {
       </div>
 
       {/* Document info card when updating */}
-      {isUpdate && document && (
-        <div className="mb-6 bg-purple-500/5 border border-purple-500/20 rounded-lg p-4">
+      {isUpdate && existingDocument && (
+        <div className="mb-6 bg-primary/5 border border-primary/20 rounded-lg p-4">
           <div className="flex items-start gap-3">
-            <div className="p-2 bg-purple-500/10 rounded-lg">
-              <FileText className="w-5 h-5 text-purple-400" />
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <FileText className="w-5 h-5 text-primary" />
             </div>
             <div className="flex-1">
-              <h2 className="font-medium font-display text-lg">{document.name}</h2>
+              <h2 className="font-medium font-display text-lg">{existingDocument.name}</h2>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-muted-foreground">
-                {document.short_title && (
+                {existingDocument.short_title && (
                   <span className="flex items-center gap-1.5">
                     <Hash className="w-3.5 h-3.5" />
-                    <span className="font-mono">{document.short_title}</span>
+                    <span className="font-mono">{existingDocument.short_title}</span>
                   </span>
                 )}
                 <span className="flex items-center gap-1.5">
                   <Calendar className="w-3.5 h-3.5" />
-                  Last updated {formatDate(document.updated_at)}
+                  Last updated {formatDate(existingDocument.updated_at)}
                 </span>
               </div>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Current version: <span className="font-mono">{document.current_version_id}</span>
-              </p>
             </div>
           </div>
         </div>
@@ -168,7 +321,7 @@ export function DocumentUpload() {
             dragActive
               ? 'border-primary bg-primary/5'
               : 'border-border hover:border-primary/50',
-            file && 'border-green-500/50 bg-green-500/5'
+            file && 'border-primary/50 bg-primary/5'
           )}
           onDragEnter={handleDrag}
           onDragLeave={handleDrag}
@@ -184,7 +337,7 @@ export function DocumentUpload() {
 
           {file ? (
             <div className="flex items-center justify-center gap-3">
-              <FileText className="w-8 h-8 text-green-500" />
+              <FileText className="w-8 h-8 text-primary" />
               <div className="text-left">
                 <p className="font-medium">{file.name}</p>
                 <p className="text-sm text-muted-foreground">
@@ -268,16 +421,14 @@ export function DocumentUpload() {
           disabled={!file || status !== 'idle'}
           className={cn(
             'w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md font-medium transition-colors',
-            status === 'success'
-              ? 'bg-green-500 text-white'
-              : 'bg-purple-600 text-white hover:bg-purple-700',
-            (!file || status !== 'idle') && status !== 'success' && 'opacity-50 cursor-not-allowed'
+            'bg-primary text-primary-foreground hover:bg-primary/90',
+            (!file || status !== 'idle') && 'opacity-50 cursor-not-allowed'
           )}
         >
           {status === 'idle' && (
             <>
               <Upload className="w-4 h-4" />
-              {isUpdate ? 'Upload New Version' : 'Upload & Process'}
+              {isUpdate ? 'Upload New Version' : 'Upload Document'}
             </>
           )}
           {status === 'uploading' && (
@@ -289,13 +440,7 @@ export function DocumentUpload() {
           {status === 'processing' && (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
-              Processing document...
-            </>
-          )}
-          {status === 'success' && (
-            <>
-              <CheckCircle className="w-4 h-4" />
-              Upload complete!
+              Processing...
             </>
           )}
           {status === 'error' && 'Error - Try again'}

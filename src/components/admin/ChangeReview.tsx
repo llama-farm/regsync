@@ -1,44 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Check, X, ChevronDown, ChevronRight, FileText } from 'lucide-react'
+import { Check, X, ChevronDown, ChevronRight, FileText, Loader2, AlertCircle, ArrowLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Change, ChangesSummary } from '@/types/document'
-
-// Mock data - will be replaced with API call
-const MOCK_CHANGES: ChangesSummary = {
-  total_changes: 3,
-  summary:
-    'Updated remote work policy in Section 4.2, clarified dress code requirements in Section 3.1, and added new section on mental health resources.',
-  changes: [
-    {
-      section: 'Section 4.2 - Remote Work Policy',
-      type: 'modified',
-      summary: 'Expanded eligibility criteria for remote work',
-      before:
-        'Employees must have completed 6 months of employment to be eligible for remote work arrangements.',
-      after:
-        'Employees must have completed 3 months of employment and demonstrated satisfactory performance to be eligible for remote work arrangements. Remote work requests require manager approval.',
-    },
-    {
-      section: 'Section 3.1 - Dress Code',
-      type: 'modified',
-      summary: 'Clarified business casual requirements',
-      before: 'Business casual attire is required in the office.',
-      after:
-        'Business casual attire is required in the office. This includes collared shirts, slacks or khakis, and closed-toe shoes. Jeans are permitted on Fridays.',
-    },
-    {
-      section: 'Section 8.5 - Mental Health Resources',
-      type: 'added',
-      summary: 'New section on mental health support',
-      after:
-        'The company provides access to mental health resources through our Employee Assistance Program (EAP). This includes confidential counseling services, stress management workshops, and mental health days.',
-    },
-  ],
-  old_version_id: 'v1',
-  new_version_id: 'v2',
-  compared_at: '2024-06-01T14:30:00Z',
-}
+import { documentsApi } from '@/api/documentsApi'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface ChangeItemProps {
   change: Change
@@ -88,7 +54,7 @@ function ChangeItem({ change, isExpanded, onToggle }: ChangeItemProps) {
                 <p className="text-xs font-medium text-muted-foreground mb-2">
                   BEFORE
                 </p>
-                <div className="p-3 bg-red-500/5 border border-red-500/20 rounded text-sm">
+                <div className="p-3 bg-red-500/5 border border-red-500/20 rounded text-sm whitespace-pre-wrap">
                   {change.before}
                 </div>
               </div>
@@ -98,7 +64,7 @@ function ChangeItem({ change, isExpanded, onToggle }: ChangeItemProps) {
                 <p className="text-xs font-medium text-muted-foreground mb-2">
                   AFTER
                 </p>
-                <div className="p-3 bg-green-500/5 border border-green-500/20 rounded text-sm">
+                <div className="p-3 bg-green-500/5 border border-green-500/20 rounded text-sm whitespace-pre-wrap">
                   {change.after}
                 </div>
               </div>
@@ -108,7 +74,7 @@ function ChangeItem({ change, isExpanded, onToggle }: ChangeItemProps) {
                 <p className="text-xs font-medium text-muted-foreground mb-2">
                   NEW CONTENT
                 </p>
-                <div className="p-3 bg-green-500/5 border border-green-500/20 rounded text-sm">
+                <div className="p-3 bg-green-500/5 border border-green-500/20 rounded text-sm whitespace-pre-wrap">
                   {change.after}
                 </div>
               </div>
@@ -123,10 +89,61 @@ function ChangeItem({ change, isExpanded, onToggle }: ChangeItemProps) {
 export function ChangeReview() {
   const { documentId, versionId } = useParams()
   const navigate = useNavigate()
-  const [expandedChanges, setExpandedChanges] = useState<Set<number>>(
-    new Set([0])
-  )
-  const [changes] = useState<ChangesSummary>(MOCK_CHANGES)
+  const { isAdmin } = useAuth()
+  const [expandedChanges, setExpandedChanges] = useState<Set<number>>(new Set([0]))
+  const [changes, setChanges] = useState<ChangesSummary | null>(null)
+  const [documentName, setDocumentName] = useState<string>('')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [pendingVersionId, setPendingVersionId] = useState<string | null>(null)
+  const [approving, setApproving] = useState(false)
+  const [rejecting, setRejecting] = useState(false)
+
+  useEffect(() => {
+    const loadData = async () => {
+      if (!documentId || !versionId) return
+
+      try {
+        setLoading(true)
+        setError(null)
+
+        // Get document info to find versions
+        const doc = await documentsApi.getDocument(documentId)
+        setDocumentName(doc.name)
+
+        const versions = doc.versions || []
+
+        // Find pending version (if any) - this is what we're reviewing
+        const pendingVersion = versions.find((v: any) => v.status === 'pending')
+        if (pendingVersion) {
+          setPendingVersionId(pendingVersion.id)
+        }
+
+        if (versions.length < 2) {
+          setError('Need at least 2 versions to compare')
+          return
+        }
+
+        // Compare the old version (versionId param) with the newest version
+        // The newest version is either pending or the current version
+        const newestVersion = pendingVersion || versions[versions.length - 1]
+        const comparison = await documentsApi.compareVersions(
+          documentId,
+          versionId,  // old version (current published)
+          newestVersion.id  // new version (pending or latest)
+        )
+
+        setChanges(comparison)
+      } catch (err) {
+        console.error('Failed to load comparison:', err)
+        setError('Failed to load comparison. Make sure the server is running.')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadData()
+  }, [documentId, versionId])
 
   const toggleChange = (index: number) => {
     setExpandedChanges((prev) => {
@@ -140,33 +157,100 @@ export function ChangeReview() {
     })
   }
 
-  const handleApprove = () => {
-    // TODO: Call API to approve changes
-    console.log('Approved', { documentId, versionId })
-    navigate('/admin')
+  const handleApprove = async () => {
+    if (!documentId || !pendingVersionId) {
+      // No pending version - just go back
+      navigate('/admin')
+      return
+    }
+
+    try {
+      setApproving(true)
+      await documentsApi.approveVersion(documentId, pendingVersionId)
+      navigate('/admin')
+    } catch (err) {
+      console.error('Failed to approve:', err)
+      setError('Failed to approve version')
+      setApproving(false)
+    }
   }
 
-  const handleReject = () => {
-    // TODO: Call API to reject changes
-    console.log('Rejected', { documentId, versionId })
-    navigate('/admin')
+  const handleReject = async () => {
+    if (!documentId || !pendingVersionId) {
+      // No pending version - just go back
+      navigate(`/history/${documentId}`)
+      return
+    }
+
+    try {
+      setRejecting(true)
+      await documentsApi.rejectVersion(documentId, pendingVersionId)
+      navigate(`/history/${documentId}`)
+    } catch (err) {
+      console.error('Failed to reject:', err)
+      setError('Failed to reject version')
+      setRejecting(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto flex items-center justify-center py-12">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  if (error || !changes) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <button
+          onClick={() => navigate(`/history/${documentId}`)}
+          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Version History
+        </button>
+        <div className="flex items-center gap-2 text-red-500 bg-red-500/10 px-4 py-3 rounded-md">
+          <AlertCircle className="w-5 h-5" />
+          <span>{error || 'No changes data available'}</span>
+        </div>
+      </div>
+    )
   }
 
   return (
     <div className="max-w-4xl mx-auto">
+      {/* Back button */}
+      <button
+        onClick={() => navigate(`/history/${documentId}`)}
+        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        Back to Version History
+      </button>
+
+      {/* Pending version banner */}
+      {pendingVersionId && (
+        <div className="mb-4 flex items-center gap-2 text-sm text-amber-600 bg-amber-500/10 border border-amber-500/20 px-3 py-2 rounded-md">
+          <AlertCircle className="w-4 h-4" />
+          <span><strong>Pending Review:</strong> This version has not been published yet. Review the changes below and approve or reject.</span>
+        </div>
+      )}
+
+
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
           <div className="flex items-center gap-2 mb-2">
             <FileText className="w-5 h-5 text-primary" />
             <span className="text-sm text-muted-foreground">
-              Employee Handbook v2024
+              {documentName || 'Document'}
             </span>
           </div>
-          <h1 className="text-2xl font-semibold">Review Changes</h1>
+          <h1 className="text-2xl font-semibold font-display">Review Changes</h1>
           <p className="text-muted-foreground">
-            Version {changes.old_version_id} → {changes.new_version_id} •{' '}
-            {changes.total_changes} changes detected
+            Comparing versions • {changes.total_changes} change{changes.total_changes !== 1 ? 's' : ''} detected
           </p>
         </div>
       </div>
@@ -178,34 +262,72 @@ export function ChangeReview() {
       </div>
 
       {/* Changes list */}
-      <div className="space-y-3 mb-6">
-        {changes.changes.map((change, index) => (
-          <ChangeItem
-            key={index}
-            change={change}
-            isExpanded={expandedChanges.has(index)}
-            onToggle={() => toggleChange(index)}
-          />
-        ))}
-      </div>
+      {changes.changes.length > 0 ? (
+        <div className="space-y-3 mb-6">
+          {changes.changes.map((change, index) => (
+            <ChangeItem
+              key={index}
+              change={change}
+              isExpanded={expandedChanges.has(index)}
+              onToggle={() => toggleChange(index)}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-8 text-muted-foreground">
+          No significant changes detected between versions
+        </div>
+      )}
 
-      {/* Action buttons */}
-      <div className="flex gap-3">
-        <button
-          onClick={handleApprove}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
-        >
-          <Check className="w-4 h-4" />
-          Approve & Publish
-        </button>
-        <button
-          onClick={handleReject}
-          className="flex items-center justify-center gap-2 px-6 py-3 border border-border rounded-md hover:bg-accent transition-colors"
-        >
-          <X className="w-4 h-4" />
-          Reject
-        </button>
-      </div>
+      {/* Action buttons - only shown to admins */}
+      {isAdmin ? (
+        <div className="flex gap-3">
+          <button
+            onClick={handleApprove}
+            disabled={approving || rejecting}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50"
+          >
+            {approving ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Approving...
+              </>
+            ) : (
+              <>
+                <Check className="w-4 h-4" />
+                Approve & Publish
+              </>
+            )}
+          </button>
+          <button
+            onClick={handleReject}
+            disabled={approving || rejecting}
+            className="flex items-center justify-center gap-2 px-6 py-3 border border-border rounded-md hover:bg-accent transition-colors disabled:opacity-50"
+          >
+            {rejecting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Rejecting...
+              </>
+            ) : (
+              <>
+                <X className="w-4 h-4" />
+                Reject Changes
+              </>
+            )}
+          </button>
+        </div>
+      ) : (
+        <div className="flex justify-end">
+          <button
+            onClick={() => navigate(`/history/${documentId}`)}
+            className="flex items-center justify-center gap-2 px-6 py-3 border border-border rounded-md hover:bg-accent transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to History
+          </button>
+        </div>
+      )}
     </div>
   )
 }

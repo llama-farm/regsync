@@ -1,35 +1,98 @@
 # RegSync - Policy Document Management System
 # LlamaFarm project configuration
 
+version: v1
+name: regsync
 namespace: default
-project: regsync
+
+# Runtime configuration - use Ollama
+runtime:
+  models:
+    - name: default
+      description: "Policy assistant model"
+      provider: ollama
+      model: llama3.2:3b
+      base_url: http://localhost:11434
+      default: true
+      prompt_format: unstructured
+
+# System prompt for policy assistant
+prompts:
+  - name: default
+    messages:
+      - role: system
+        content: |
+          You are a helpful policy assistant for the 73rd Medical Wing.
+          Answer questions about policy documents based on the provided context.
+          Always cite the specific document and section when providing information.
+          If you don't find relevant information in the context, say so clearly.
+          Be concise and professional in your responses.
 
 # RAG configuration for policy document search
 rag:
-  enabled: true
-  database: policies
-  embedding_model: sentence-transformers/all-MiniLM-L6-v2
-  chunk_size: 512
-  chunk_overlap: 50
-  retrieval_strategy: semantic
+  databases:
+    - name: policies
+      type: ChromaStore
+      config:
+        collection_name: policies
+        distance_function: cosine
+        persist_directory: ./data/policies_db
+        port: 8000
+      embedding_strategies:
+        - name: default_embeddings
+          type: UniversalEmbedder
+          config:
+            model: nomic-ai/nomic-embed-text-v2-moe
+            dimension: 768
+            batch_size: 16
+            timeout: 60
+            auto_pull: true
+          priority: 0
+      retrieval_strategies:
+        - name: semantic_search
+          type: BasicSimilarityStrategy
+          config:
+            distance_metric: cosine
+            top_k: 5
+          default: true
+      default_embedding_strategy: default_embeddings
+      default_retrieval_strategy: semantic_search
+
+  data_processing_strategies:
+    - name: policy_processor
+      description: Parser for policy PDF documents
+      parsers:
+        - type: PDFParser_LlamaIndex
+          file_include_patterns:
+            - "*.pdf"
+            - "*.PDF"
+          priority: 100
+          config:
+            chunk_size: 512
+            chunk_overlap: 50
+            chunk_strategy: semantic
+            extract_metadata: true
+        - type: PDFParser_PyPDF2
+          file_include_patterns:
+            - "*.pdf"
+            - "*.PDF"
+          priority: 50
+          config:
+            chunk_size: 500
+            chunk_overlap: 50
+            chunk_strategy: paragraphs
+            extract_metadata: true
+      extractors:
+        - type: ContentStatisticsExtractor
+          file_include_patterns:
+            - "*"
+          priority: 100
+          config:
+            include_readability: true
+            include_structure: true
 
 # Dataset for policy documents
 datasets:
-  policies:
-    auto_process: true
-    data_processing_strategy: chunked
+  - name: policies
+    data_processing_strategy: policy_processor
     database: policies
-
-# Chat configuration with RAG augmentation
-chat:
-  enabled: true
-  model: llama3.2:3b
-  system_prompt: |
-    You are a helpful policy assistant for RegSync, a policy document management system.
-    Answer questions about policy documents based on the provided context.
-    Always cite the specific document and section when providing information.
-    If you don't find relevant information in the context, say so clearly.
-  rag_enabled: true
-  rag_database: policies
-  rag_top_k: 5
-  rag_score_threshold: 0.5

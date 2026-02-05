@@ -4,42 +4,6 @@ import { FileText, History, Upload, Eye, RefreshCw, Loader2, AlertCircle } from 
 import type { PolicyDocument } from '@/types/document'
 import { documentsApi } from '@/api/documentsApi'
 
-// Fallback mock data - used when API is unavailable
-const MOCK_POLICIES: PolicyDocument[] = [
-  {
-    id: '1',
-    name: 'Employee Handbook v2024',
-    short_title: 'EMP-HB-2024',
-    current_version_id: 'v2',
-    created_at: '2024-01-15T10:00:00Z',
-    updated_at: '2024-06-01T14:30:00Z',
-  },
-  {
-    id: '2',
-    name: 'IT Security Policy',
-    short_title: 'IT-SEC-001',
-    current_version_id: 'v3',
-    created_at: '2023-08-20T09:00:00Z',
-    updated_at: '2025-01-09T11:15:00Z',
-  },
-  {
-    id: '3',
-    name: 'Travel & Expense Guidelines',
-    short_title: 'FIN-TRV-001',
-    current_version_id: 'v1',
-    created_at: '2024-03-10T08:00:00Z',
-    updated_at: '2024-03-10T08:00:00Z',
-  },
-  {
-    id: '4',
-    name: 'Code of Conduct',
-    short_title: 'HR-COC-001',
-    current_version_id: 'v2',
-    created_at: '2023-01-01T00:00:00Z',
-    updated_at: '2024-12-15T16:00:00Z',
-  },
-]
-
 interface PolicyCardProps {
   policy: PolicyDocument
   onView: () => void
@@ -55,10 +19,10 @@ function PolicyCard({ policy, onView, onUpdate, onHistory }: PolicyCardProps) {
   })
 
   return (
-    <div className="bg-card border border-border rounded-lg p-4 hover:border-purple-500/50 transition-colors">
+    <div className="bg-card border border-border rounded-lg p-4 hover:border-primary/50 transition-colors">
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2">
-          <FileText className="w-5 h-5 text-purple-400" />
+          <FileText className="w-5 h-5 text-primary" />
           <span className="text-xs font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
             {policy.short_title || 'DOC'}
           </span>
@@ -81,7 +45,7 @@ function PolicyCard({ policy, onView, onUpdate, onHistory }: PolicyCardProps) {
         </button>
         <button
           onClick={onUpdate}
-          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 rounded-md transition-colors"
+          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm bg-primary/10 text-primary hover:bg-primary/20 rounded-md transition-colors"
         >
           <RefreshCw className="w-3.5 h-3.5" />
           Update
@@ -98,15 +62,11 @@ function PolicyCard({ policy, onView, onUpdate, onHistory }: PolicyCardProps) {
   )
 }
 
-// Export mock policies for use in other components
-export { MOCK_POLICIES }
-
 export function AdminDashboard() {
   const navigate = useNavigate()
   const [policies, setPolicies] = useState<PolicyDocument[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [usingMockData, setUsingMockData] = useState(false)
 
   useEffect(() => {
     const loadDocuments = async () => {
@@ -117,16 +77,13 @@ export function AdminDashboard() {
         // Handle case where API returns unexpected format
         if (response?.documents && Array.isArray(response.documents)) {
           setPolicies(response.documents)
-          setUsingMockData(false)
         } else {
           throw new Error('Invalid API response format')
         }
       } catch (err) {
         console.error('Failed to load documents:', err)
-        // Fall back to mock data
-        setPolicies(MOCK_POLICIES)
-        setUsingMockData(true)
-        setError('Using demo data - LlamaFarm server not connected')
+        setError('Failed to load documents. Make sure the server is running.')
+        setPolicies([])
       } finally {
         setLoading(false)
       }
@@ -134,19 +91,10 @@ export function AdminDashboard() {
     loadDocuments()
   }, [])
 
-  const handleDownload = async (policy: PolicyDocument) => {
-    try {
-      const blob = await documentsApi.downloadFile(policy.id)
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${policy.short_title || policy.name}.pdf`
-      a.click()
-      window.URL.revokeObjectURL(url)
-    } catch (err) {
-      console.error('Download failed:', err)
-      alert('Document download requires LlamaFarm server connection.')
-    }
+  const handleView = (policy: PolicyDocument) => {
+    // Open PDF in new browser tab
+    const fileUrl = `/api/projects/default/regsync/documents/${policy.id}/file`
+    window.open(fileUrl, '_blank')
   }
 
   return (
@@ -161,16 +109,16 @@ export function AdminDashboard() {
         </div>
         <button
           onClick={() => navigate('/upload')}
-          className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
         >
           <Upload className="w-4 h-4" />
           Upload New
         </button>
       </div>
 
-      {/* Connection status */}
-      {usingMockData && (
-        <div className="mb-4 flex items-center gap-2 text-sm text-amber-500 bg-amber-500/10 px-3 py-2 rounded-md">
+      {/* Error status */}
+      {error && (
+        <div className="mb-4 flex items-center gap-2 text-sm text-red-500 bg-red-500/10 px-3 py-2 rounded-md">
           <AlertCircle className="w-4 h-4" />
           {error}
         </div>
@@ -179,7 +127,7 @@ export function AdminDashboard() {
       {/* Loading state */}
       {loading && (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-purple-400" />
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
       )}
 
@@ -207,7 +155,7 @@ export function AdminDashboard() {
               <PolicyCard
                 key={policy.id}
                 policy={policy}
-                onView={() => handleDownload(policy)}
+                onView={() => handleView(policy)}
                 onUpdate={() => navigate('/upload', { state: { document: policy } })}
                 onHistory={() => navigate(`/history/${policy.id}`)}
               />
