@@ -81,7 +81,93 @@ interface ChatCompletionResponse {
   rag_context?: RAGQueryResult[]
 }
 
+// Import documentsApi for version comparisons
+import { documentsApi } from './documentsApi'
+
 export const chatApi = {
+  // Query about changes in a specific document
+  // Uses version comparison instead of general RAG search
+  async queryDocumentChanges(
+    documentId: string,
+    documentName: string
+  ): Promise<{
+    answer: string
+    sources: CitedSource[]
+  }> {
+    try {
+      // Get document with versions
+      const doc = await documentsApi.getDocument(documentId)
+      const versions = doc.versions || []
+
+      // Sort by created_at to get chronological order
+      const sortedVersions = [...versions].sort(
+        (a, b) => new Date(a.created_at || a.uploaded_at).getTime() - new Date(b.created_at || b.uploaded_at).getTime()
+      )
+
+      // If only one version, no changes to report
+      if (sortedVersions.length <= 1) {
+        return {
+          answer: `This is the first version of "${documentName}". There are no previous versions to compare against, so no changes can be reported.\n\nTo see the document contents, click "View" on the source document below.`,
+          sources: [{
+            content: `First version uploaded`,
+            score: 1.0,
+            metadata: { filename: doc.name },
+            document_id: documentId,
+            version_id: doc.current_version_id,
+            filename: sortedVersions[0]?.filename || doc.name,
+          }],
+        }
+      }
+
+      // Get the current version and try to detect changes
+      const currentVersion = sortedVersions[sortedVersions.length - 1]
+      const previousVersion = sortedVersions[sortedVersions.length - 2]
+
+      try {
+        // Try to get changes using the detect-changes API
+        const changes = await documentsApi.detectChanges(documentId, currentVersion.id, true)
+
+        if (changes && changes.changes && changes.changes.length > 0) {
+          // Format the changes into a readable response
+          const changesList = changes.changes.map(c => {
+            const prefix = c.type === 'added' ? '**Added:**' : c.type === 'removed' ? '**Removed:**' : '**Modified:**'
+            return `- ${prefix} ${c.section}: ${c.summary}`
+          }).join('\n')
+
+          return {
+            answer: `## Changes in ${documentName}\n\n${changes.summary || 'The following changes were detected:'}\n\n${changesList}\n\n*Compared Version ${sortedVersions.length} (current) with Version ${sortedVersions.length - 1}*`,
+            sources: [{
+              content: `Version ${sortedVersions.length}: ${changes.summary || 'Latest version'}`,
+              score: 1.0,
+              metadata: { filename: doc.name },
+              document_id: documentId,
+              version_id: currentVersion.id,
+              filename: currentVersion.filename || doc.name,
+            }],
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to detect changes via API, using fallback:', err)
+      }
+
+      // Fallback: Return version info without detailed changes
+      return {
+        answer: `## ${documentName}\n\nThis document has ${sortedVersions.length} versions. The current version was uploaded on ${new Date(currentVersion.uploaded_at).toLocaleDateString()}.\n\nTo see detailed changes between versions, an administrator can use the "Compare with current" feature in the version history.\n\n**Note:** Automatic change detection is not available for this document. Please review the document directly.`,
+        sources: [{
+          content: `Current version (v${sortedVersions.length})`,
+          score: 1.0,
+          metadata: { filename: doc.name },
+          document_id: documentId,
+          version_id: currentVersion.id,
+          filename: currentVersion.filename || doc.name,
+        }],
+      }
+    } catch (err) {
+      console.error('Failed to query document changes:', err)
+      throw err
+    }
+  },
+
   // Perform RAG query (retrieval only)
   async ragQuery(request: RAGQueryRequest): Promise<RAGQueryResponse> {
     const { data } = await apiClient.post<RAGQueryResponse>(

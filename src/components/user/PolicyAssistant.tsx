@@ -139,6 +139,49 @@ export function PolicyAssistant() {
     return confidence !== null && confidence < 50
   }
 
+  // Handle clicking on a document to ask about changes
+  // Uses document-specific version comparison instead of general RAG
+  const handleDocumentClick = async (documentId: string, documentName: string) => {
+    if (isLoading) return
+
+    const userMessage: ChatMessage = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: `What changed in ${documentName}?`,
+      timestamp: new Date().toISOString(),
+    }
+
+    setMessages((prev) => [...prev, userMessage])
+    setIsLoading(true)
+
+    try {
+      // Use document-specific query that compares versions
+      const response = await chatApi.queryDocumentChanges(documentId, documentName)
+
+      const assistantMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: response.answer,
+        sources: response.sources,
+        timestamp: new Date().toISOString(),
+      }
+
+      setMessages((prev) => [...prev, assistantMessage])
+    } catch (err) {
+      console.error('Document query error:', err)
+
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: 'Sorry, I encountered an error while looking up this document. Please make sure the server is running and try again.',
+        timestamp: new Date().toISOString(),
+      }
+      setMessages((prev) => [...prev, errorMessage])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   // Handle feedback click
   const handleFeedback = (messageId: string, type: 'up' | 'down') => {
     setFeedback((prev) => ({
@@ -310,8 +353,8 @@ export function PolicyAssistant() {
     <div className="flex flex-col h-full">
       {/* Compact header - Policy Assistant title + New chat button */}
       {hasMessages && (
-        <div className="border-b border-border bg-background px-4 py-1.5">
-          <div className="max-w-3xl mx-auto flex items-center justify-between">
+        <div className="border-b border-border bg-background px-4 py-0.5">
+          <div className="max-w-3xl mx-auto flex items-center justify-between h-8">
             <span className="text-sm font-medium">Policy Assistant</span>
             <button
               onClick={handleClear}
@@ -372,7 +415,7 @@ export function PolicyAssistant() {
                   <button
                     key={update.id}
                     className="w-full bg-card border border-border rounded-lg p-4 hover:border-primary/50 transition-colors text-left group"
-                    onClick={() => handleSend(`What changed in ${update.shortTitle}?`)}
+                    onClick={() => handleDocumentClick(update.id, update.documentName)}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex items-start gap-3">

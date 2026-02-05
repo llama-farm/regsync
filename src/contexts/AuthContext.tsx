@@ -40,7 +40,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Start with null user to show sign-in screen
   const [user, setUser] = useState<User | null>(null)
 
-  const login = (role: Role) => setUser(MOCK_USERS[role])
+  const login = (role: Role) => {
+    // Clear chat history on each sign-in for fresh start
+    localStorage.removeItem(`${CHAT_STORAGE_KEY}_admin`)
+    localStorage.removeItem(`${CHAT_STORAGE_KEY}_user`)
+    setUser(MOCK_USERS[role])
+  }
 
   const logout = () => {
     // Clear chat history for both roles on logout
