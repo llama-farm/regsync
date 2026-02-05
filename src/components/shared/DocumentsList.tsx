@@ -1,7 +1,17 @@
 import { useState, useEffect } from 'react'
-import { Search, FileText, Loader2, Calendar, User } from 'lucide-react'
+import { Search, FileText, Loader2, Calendar, User, ExternalLink } from 'lucide-react'
 import type { PolicyDocument } from '@/types/document'
 import { documentsApi } from '@/api/documentsApi'
+
+// Build document file URL for direct access
+const getDocumentUrl = (documentId: string): string => {
+  return `/api/projects/default/regsync/documents/${documentId}/file`
+}
+
+// Check if this is a real document (not mock)
+const isRealDocument = (docId: string): boolean => {
+  return !docId.startsWith('mock-')
+}
 
 // Mock data for additional documents (beyond what's in the database)
 const MOCK_DOCUMENTS: PolicyDocument[] = [
@@ -141,40 +151,58 @@ export function DocumentsList() {
               No documents found matching "{searchQuery}"
             </div>
           ) : (
-            filteredDocuments.map((doc) => (
-              <div
-                key={doc.id}
-                className="bg-card border border-border rounded-lg p-4 hover:border-primary/50 transition-colors"
-              >
-                <div className="flex items-start gap-4">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <FileText className="w-5 h-5 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-medium truncate">{doc.name}</h3>
-                      {doc.short_title && (
-                        <span className="text-xs font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0">
-                          {doc.short_title}
-                        </span>
-                      )}
+            filteredDocuments.map((doc) => {
+              const isReal = isRealDocument(doc.id)
+              const CardWrapper = isReal ? 'a' : 'div'
+              const cardProps = isReal
+                ? {
+                    href: getDocumentUrl(doc.id),
+                    target: '_blank',
+                    rel: 'noopener noreferrer',
+                  }
+                : {}
+
+              return (
+                <CardWrapper
+                  key={doc.id}
+                  {...cardProps}
+                  className={`bg-card border border-border rounded-lg p-4 hover:border-primary/50 transition-colors block ${
+                    isReal ? 'cursor-pointer group' : 'opacity-60'
+                  }`}
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="p-2 bg-primary/10 rounded-lg">
+                      <FileText className="w-5 h-5 text-primary" />
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5" />
-                        Updated {formatDate(doc.updated_at)}
-                      </span>
-                      {doc.created_by && (
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-medium truncate">{doc.name}</h3>
+                        {doc.short_title && (
+                          <span className="text-xs font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0">
+                            {doc.short_title}
+                          </span>
+                        )}
+                        {isReal && (
+                          <ExternalLink className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                        )}
+                      </div>
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1.5">
-                          <User className="w-3.5 h-3.5" />
-                          {doc.created_by}
+                          <Calendar className="w-3.5 h-3.5" />
+                          Updated {formatDate(doc.updated_at)}
                         </span>
-                      )}
+                        {doc.created_by && (
+                          <span className="flex items-center gap-1.5">
+                            <User className="w-3.5 h-3.5" />
+                            {doc.created_by}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            ))
+                </CardWrapper>
+              )
+            })
           )}
         </div>
       )}
