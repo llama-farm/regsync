@@ -5,12 +5,14 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import type { PolicyDocument } from '@/types/document'
 import type { PolicyScope } from '@/types/location'
+import type { MatchDetectionResult, DocumentMatch } from '@/types/match'
 import { documentsApi } from '@/api/documentsApi'
 import { useAuth } from '@/contexts/AuthContext'
 import { UploadDiffPreview } from './UploadDiffPreview'
 import { ScopeSelector } from './ScopeSelector'
+import { MatchSuggestions } from './MatchSuggestions'
 
-type UploadStatus = 'idle' | 'uploading' | 'processing' | 'confirm' | 'publishing' | 'error'
+type UploadStatus = 'idle' | 'uploading' | 'detecting' | 'processing' | 'confirm' | 'publishing' | 'error'
 
 interface UploadedDocInfo {
   id: string
@@ -40,6 +42,7 @@ export function DocumentUpload() {
   const [dragActive, setDragActive] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [uploadedDoc, setUploadedDoc] = useState<UploadedDocInfo | null>(null)
+  const [matchResult, setMatchResult] = useState<MatchDetectionResult | null>(null)
   const previousVersionId = useRef<string | null>(existingDocument?.current_version_id || null)
 
   const handleDrag = useCallback((e: React.DragEvent) => {
@@ -84,6 +87,7 @@ export function DocumentUpload() {
 
     setStatus('uploading')
     setErrorMessage(null)
+    setMatchResult(null)
 
     try {
       const uploadedBy = adminUser?.name || 'Unknown'
@@ -107,32 +111,25 @@ export function DocumentUpload() {
         })
         setStatus('confirm')
       } else {
-        // Create new document
-        const response = await documentsApi.createDocument(
-          file,
-          name,
-          uploadedBy,
-          shortTitle || undefined,
-          notes || undefined,
-          scope
-        )
-        setStatus('processing')
-        await new Promise((resolve) => setTimeout(resolve, 500))
+        // NEW: For new documents, first detect potential matches
+        setStatus('detecting')
 
-        // Store uploaded doc info and move to confirm step
-        setUploadedDoc({
-          id: response.document.id,
-          name: response.document.name,
-          shortTitle: response.document.short_title,
-          versionId: response.version.id,
-          filename: response.version.filename || response.version.file_name || file.name,
-          size: response.version.size || response.version.file_size || file.size,
-          isUpdate: false
-        })
-        setStatus('confirm')
-        toast.success('Document uploaded successfully', {
-          description: 'Review the document before publishing.',
-        })
+        try {
+          const matches = await documentsApi.detectMatches(file)
+
+          if (matches.matches.length > 0) {
+            // Found potential matches - show selection UI
+            setMatchResult(matches)
+            // Stay in detecting state, render MatchSuggestions
+            return
+          }
+        } catch (matchError) {
+          // Match detection failed - proceed with normal upload
+          console.warn('Match detection failed, proceeding with upload:', matchError)
+        }
+
+        // No matches found or detection failed - proceed with normal upload
+        await proceedWithNewDocument()
       }
     } catch (err) {
       console.error('Upload failed:', err)
@@ -142,6 +139,86 @@ export function DocumentUpload() {
       toast.error('Upload failed', {
         description: message,
       })
+    }
+  }
+
+  // Helper to proceed with creating a new document
+  const proceedWithNewDocument = async () => {
+    if (!file) return
+
+    setStatus('processing')
+    const uploadedBy = adminUser?.name || 'Unknown'
+
+    const response = await documentsApi.createDocument(
+      file,
+      name,
+      uploadedBy,
+      shortTitle || undefined,
+      notes || undefined,
+      scope
+    )
+
+    // Store uploaded doc info and move to confirm step
+    setUploadedDoc({
+      id: response.document.id,
+      name: response.document.name,
+      shortTitle: response.document.short_title,
+      versionId: response.version.id,
+      filename: response.version.filename || response.version.file_name || file.name,
+      size: response.version.size || response.version.file_size || file.size,
+      isUpdate: false
+    })
+    setStatus('confirm')
+    toast.success('Document uploaded successfully', {
+      description: 'Review the document before publishing.',
+    })
+  }
+
+  // Handle selecting a matched document to update
+  const handleSelectMatch = async (match: DocumentMatch) => {
+    if (!file) return
+
+    setStatus('uploading')
+    const uploadedBy = adminUser?.name || 'Unknown'
+
+    try {
+      const response = await documentsApi.uploadVersion(match.document.id, file, uploadedBy, notes || undefined)
+      setStatus('processing')
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
+      setUploadedDoc({
+        id: match.document.id,
+        name: match.document.name,
+        shortTitle: match.document.short_title,
+        versionId: response.version.id,
+        filename: response.version.filename || response.version.file_name || file.name,
+        size: response.version.size || response.version.file_size || file.size,
+        isUpdate: true,
+        previousVersionId: match.document.current_version_id
+      })
+      setMatchResult(null)
+      setStatus('confirm')
+      toast.success('Version uploaded', {
+        description: `Added as new version of ${match.document.name}`,
+      })
+    } catch (err) {
+      setStatus('error')
+      const message = err instanceof Error ? err.message : 'Upload failed'
+      setErrorMessage(message)
+      toast.error('Upload failed', { description: message })
+    }
+  }
+
+  // Handle choosing to create new document from match selection
+  const handleCreateNewFromMatch = async () => {
+    setMatchResult(null)
+    try {
+      await proceedWithNewDocument()
+    } catch (err) {
+      setStatus('error')
+      const message = err instanceof Error ? err.message : 'Upload failed'
+      setErrorMessage(message)
+      toast.error('Upload failed', { description: message })
     }
   }
 
@@ -178,6 +255,21 @@ export function DocumentUpload() {
 
   const formatFileSize = (bytes: number) => {
     return (bytes / 1024 / 1024).toFixed(2) + ' MB'
+  }
+
+  // Match selection step - show when matches are found
+  if (status === 'detecting' && matchResult && matchResult.matches.length > 0) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <MatchSuggestions
+          result={matchResult}
+          uploadedFileName={file?.name || ''}
+          onSelectMatch={handleSelectMatch}
+          onCreateNew={handleCreateNewFromMatch}
+          onCancel={handleCancel}
+        />
+      </div>
+    )
   }
 
   // Confirmation step - show document preview or diff preview for updates
@@ -475,6 +567,12 @@ export function DocumentUpload() {
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
               Uploading...
+            </>
+          )}
+          {status === 'detecting' && (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Analyzing document...
             </>
           )}
           {status === 'processing' && (

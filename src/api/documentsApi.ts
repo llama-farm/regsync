@@ -7,6 +7,7 @@ import type {
   ChangesSummary,
 } from '@/types/document'
 import type { PolicyScope } from '@/types/location'
+import type { MatchDetectionResult } from '@/types/match'
 
 interface ListDocumentsResponse {
   total: number
@@ -177,6 +178,19 @@ export const documentsApi = {
   ): Promise<{ message: string }> {
     const { data } = await apiClient.delete(
       projectUrl(`/documents/${documentId}/versions/${versionId}`)
+    )
+    return data
+  },
+
+  // Detect potential matches for an uploaded file
+  async detectMatches(file: File): Promise<MatchDetectionResult> {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const { data } = await apiClient.post<MatchDetectionResult>(
+      projectUrl('/documents/detect-matches'),
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
     )
     return data
   },

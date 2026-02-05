@@ -14,6 +14,7 @@ import { createRequire } from 'module'
 const require = createRequire(import.meta.url)
 const { PDFParse } = require('pdf-parse')
 import { diffLines } from 'diff'
+import stringSimilarity from 'string-similarity'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -588,6 +589,184 @@ app.get('/v1/projects/:namespace/:project/documents/:documentId/compare', async 
     changes,
     compared_at: new Date().toISOString()
   })
+})
+
+// ============================================
+// Smart Version Detection - Match Detection
+// ============================================
+
+// Extract document number like "36-2903" from text
+function extractDocNumber(text) {
+  if (!text) return null
+  // Match patterns like 36-2903, 44-102, 31-101
+  const match = text.match(/(\d{1,3})-(\d{1,5})/)
+  return match ? match[0] : null
+}
+
+// Normalize string for comparison
+function normalizeString(str) {
+  if (!str) return ''
+  return str
+    .toLowerCase()
+    .replace(/[_-]/g, ' ')
+    .replace(/\.pdf$/i, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+// Try to extract title from PDF text (first significant line)
+function extractTitleFromText(text) {
+  if (!text) return null
+  const lines = text.split('\n').filter(l => l.trim().length > 10)
+  // Look for title-like lines in first 20 lines
+  for (const line of lines.slice(0, 20)) {
+    const trimmed = line.trim()
+    // Skip short lines, page numbers, dates, headers
+    if (trimmed.length > 15 && trimmed.length < 200 &&
+        !trimmed.match(/^(page|date|department|headquarters|air force)/i) &&
+        !trimmed.match(/^\d+$/) &&
+        !trimmed.match(/^\d{1,2}\/\d{1,2}\/\d{2,4}/)) {
+      return trimmed
+    }
+  }
+  return null
+}
+
+// Calculate match score between uploaded file and existing document
+function calculateMatchScore(uploadedFilename, existingDoc, extractedText) {
+  let score = 0
+  const signals = []
+
+  // Signal 1: "Supersedes" reference (60 points) - strongest signal
+  if (extractedText && existingDoc.short_title) {
+    const supersedesPattern = /supersedes[:\s]+(?:DAFI|AFI|AFPD|AFH|AETCI|JBSAI|MDWI)?\s*(\d{1,3}-\d{1,5})/gi
+    const matches = extractedText.match(supersedesPattern)
+    if (matches) {
+      for (const match of matches) {
+        const docNum = extractDocNumber(match)
+        const existingDocNum = extractDocNumber(existingDoc.short_title)
+        if (docNum && existingDocNum && docNum === existingDocNum) {
+          score += 60
+          signals.push({ type: 'supersedes', weight: 60, detail: `Supersedes ${existingDoc.short_title}` })
+          break
+        }
+      }
+    }
+  }
+
+  // Signal 2: Document number match (50 points)
+  const uploadedDocNum = extractDocNumber(uploadedFilename) || extractDocNumber(extractedText?.substring(0, 2000))
+  const existingDocNum = extractDocNumber(existingDoc.short_title) || extractDocNumber(existingDoc.name)
+  if (uploadedDocNum && existingDocNum && uploadedDocNum === existingDocNum) {
+    score += 50
+    signals.push({ type: 'document_number', weight: 50, detail: `Document number ${uploadedDocNum}` })
+  }
+
+  // Signal 3: Filename similarity (40 points max)
+  const existingFilename = existingDoc.versions?.[0]?.original_name || existingDoc.name
+  const filenameSimilarity = stringSimilarity.compareTwoStrings(
+    normalizeString(uploadedFilename),
+    normalizeString(existingFilename)
+  )
+  const filenameScore = Math.round(filenameSimilarity * 40)
+  if (filenameScore > 15) {
+    score += filenameScore
+    signals.push({ type: 'filename', weight: filenameScore, similarity: filenameSimilarity })
+  }
+
+  // Signal 4: Title similarity (30 points max)
+  const titleFromPdf = extractTitleFromText(extractedText)
+  const titleToCompare = titleFromPdf || uploadedFilename
+  const titleSimilarity = stringSimilarity.compareTwoStrings(
+    normalizeString(titleToCompare),
+    normalizeString(existingDoc.name)
+  )
+  const titleScore = Math.round(titleSimilarity * 30)
+  if (titleScore > 10) {
+    score += titleScore
+    signals.push({ type: 'title', weight: titleScore, similarity: titleSimilarity })
+  }
+
+  return { score, signals }
+}
+
+// Get confidence level from score
+function getConfidenceLevel(score) {
+  if (score >= 80) return 'high'
+  if (score >= 50) return 'medium'
+  if (score >= 25) return 'low'
+  return null
+}
+
+// Detect potential matches for an uploaded document
+app.post('/v1/projects/:namespace/:project/documents/detect-matches', upload.single('file'), async (req, res) => {
+  const startTime = Date.now()
+
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file uploaded' })
+  }
+
+  try {
+    // Extract text from uploaded PDF
+    const filePath = path.join(POLICIES_DIR, req.file.filename)
+    const extractedText = await extractPdfText(filePath)
+
+    // Load all existing documents
+    const metadata = loadMetadata()
+    const existingDocs = metadata.documents
+
+    // Score each document
+    const matches = []
+    for (const doc of existingDocs) {
+      const { score, signals } = calculateMatchScore(
+        req.file.originalname,
+        doc,
+        extractedText
+      )
+
+      const confidence = getConfidenceLevel(score)
+      if (confidence) {
+        matches.push({
+          document: {
+            id: doc.id,
+            name: doc.name,
+            short_title: doc.short_title,
+            updated_at: doc.updated_at,
+            current_version_id: doc.current_version_id
+          },
+          score,
+          confidence,
+          signals
+        })
+      }
+    }
+
+    // Sort by score descending, take top 3
+    matches.sort((a, b) => b.score - a.score)
+    const topMatches = matches.slice(0, 3)
+
+    // Extract metadata from uploaded file for display
+    const extractedDocNumber = extractDocNumber(req.file.originalname) || extractDocNumber(extractedText?.substring(0, 2000))
+    const extractedTitle = extractTitleFromText(extractedText)
+
+    // Clean up the uploaded file (it was just for analysis)
+    fs.unlinkSync(filePath)
+
+    res.json({
+      matches: topMatches,
+      extracted_title: extractedTitle,
+      extracted_doc_number: extractedDocNumber,
+      analysis_time_ms: Date.now() - startTime
+    })
+  } catch (error) {
+    console.error('Match detection error:', error)
+    // Clean up file on error
+    try {
+      const filePath = path.join(POLICIES_DIR, req.file.filename)
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath)
+    } catch {}
+    res.status(500).json({ error: 'Failed to analyze document' })
+  }
 })
 
 app.listen(PORT, () => {
