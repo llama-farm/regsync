@@ -485,7 +485,7 @@ export function PolicyAssistant() {
                               </span>
                             </div>
                           )}
-                          <div className="prose prose-sm dark:prose-invert max-w-none font-body prose-p:my-3 prose-headings:mt-4 prose-headings:mb-2 prose-ul:my-2 prose-li:my-1 [&>p:first-child]:mt-0">
+                          <div className="prose prose-sm dark:prose-invert max-w-none font-body prose-p:my-4 prose-headings:mt-6 prose-headings:mb-3 prose-ul:my-4 prose-li:my-2 prose-strong:font-semibold [&>p:first-child]:mt-0 leading-relaxed">
                             <ReactMarkdown>{message.content}</ReactMarkdown>
                           </div>
 
