@@ -93,25 +93,39 @@ export function PolicyAssistant() {
     }
   }, [messages])
 
-  // Fetch recent document updates from API
+  // Fetch recent document updates from API (only docs with 2+ versions)
   useEffect(() => {
     const loadRecentUpdates = async () => {
       try {
         const response = await documentsApi.listDocuments()
-        // Sort by updated_at and take the most recent
-        const updates = response.documents
+        // Sort by updated_at
+        const sortedDocs = response.documents
           .filter(doc => doc.updated_at)
           .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
-          .slice(0, 3)
-          .map(doc => ({
-            id: doc.id,
-            documentName: doc.name,
-            shortTitle: doc.short_title || 'Policy Document',
-            summary: `Latest version updated`,
-            updatedAt: doc.updated_at,
-            updatedBy: 'Policy Administrator',
-          }))
-        setRecentUpdates(updates)
+
+        // Check version counts for recent docs (only show docs with actual updates)
+        const docsWithUpdates: RecentUpdate[] = []
+        for (const doc of sortedDocs) {
+          if (docsWithUpdates.length >= 3) break
+          try {
+            const versionsResponse = await documentsApi.listVersions(doc.id)
+            if (versionsResponse.versions.length >= 2) {
+              // This doc has actual updates (multiple versions)
+              const latestVersion = versionsResponse.versions[0]
+              docsWithUpdates.push({
+                id: doc.id,
+                documentName: doc.name,
+                shortTitle: doc.short_title || 'Policy Document',
+                summary: `Updated to version ${versionsResponse.versions.length}`,
+                updatedAt: doc.updated_at,
+                updatedBy: latestVersion?.uploaded_by || 'Policy Administrator',
+              })
+            }
+          } catch {
+            // Skip docs where we can't fetch versions
+          }
+        }
+        setRecentUpdates(docsWithUpdates)
       } catch (err) {
         console.error('Failed to load recent updates:', err)
         // Keep empty array - no fallback to mock data
@@ -134,9 +148,9 @@ export function PolicyAssistant() {
     return confidence !== null && confidence < 50
   }
 
-  // Handle clicking on a document to ask about it
+  // Handle clicking on a document to ask about recent updates
   const handleDocumentClick = (_documentId: string, documentName: string) => {
-    handleSend(`Tell me about ${documentName}`)
+    handleSend(`What are the latest updates in ${documentName}?`)
   }
 
   // Handle feedback click
@@ -357,44 +371,46 @@ export function PolicyAssistant() {
               </form>
             </div>
 
-            {/* Recent updates */}
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <Clock className="w-4 h-4 text-muted-foreground" />
-                <h2 className="font-medium font-display">Recent Policy Updates</h2>
-              </div>
+            {/* Recent updates - only shown if there are docs with multiple versions */}
+            {recentUpdates.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <Clock className="w-4 h-4 text-muted-foreground" />
+                  <h2 className="font-medium font-display">Recent Policy Updates</h2>
+                </div>
 
-              <div className="space-y-3">
-                {recentUpdates.map((update) => (
-                  <button
-                    key={update.id}
-                    className="w-full bg-card border border-border rounded-lg p-4 hover:border-primary/50 transition-colors text-left group"
-                    onClick={() => handleDocumentClick(update.id, update.documentName)}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start gap-3">
-                        <FileText className="w-5 h-5 text-primary mt-0.5" />
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-medium">{update.documentName}</span>
-                            <span className="text-xs font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                              {update.shortTitle}
-                            </span>
+                <div className="space-y-3">
+                  {recentUpdates.map((update) => (
+                    <button
+                      key={update.id}
+                      className="w-full bg-card border border-border rounded-lg p-4 hover:border-primary/50 transition-colors text-left group"
+                      onClick={() => handleDocumentClick(update.id, update.documentName)}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-3">
+                          <FileText className="w-5 h-5 text-primary mt-0.5" />
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-medium">{update.documentName}</span>
+                              <span className="text-xs font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                                {update.shortTitle}
+                              </span>
+                            </div>
+                            <p className="text-sm text-muted-foreground mb-2">
+                              {update.summary}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Updated {formatDate(update.updatedAt)} by {update.updatedBy}
+                            </p>
                           </div>
-                          <p className="text-sm text-muted-foreground mb-2">
-                            {update.summary}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Updated {formatDate(update.updatedAt)} by {update.updatedBy}
-                          </p>
                         </div>
+                        <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
-                      <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         ) : (
           /* Chat messages */
