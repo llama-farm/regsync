@@ -6,7 +6,6 @@ import {
   FileText,
   Eye,
   RotateCcw,
-  ChevronRight,
   User,
   Calendar,
   Loader2,
@@ -249,17 +248,6 @@ export function VersionHistory() {
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
                       Revert to this version
-                    </button>
-                  )}
-                  {!isCurrent && version.status !== 'pending' && (
-                    <button
-                      onClick={() =>
-                        navigate(`/review/${documentId}/${version.id}`)
-                      }
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent rounded-md transition-colors"
-                    >
-                      Compare with current
-                      <ChevronRight className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>

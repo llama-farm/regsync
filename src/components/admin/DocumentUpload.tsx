@@ -143,17 +143,15 @@ export function DocumentUpload() {
   const handleConfirm = () => {
     if (!uploadedDoc) return
 
-    if (uploadedDoc.isUpdate && uploadedDoc.previousVersionId) {
-      // For updates, go to the diff review page
-      toast.info('Preparing change review...', {
-        description: 'You can compare the new version with the previous one.',
-      })
-      navigate(`/review/${uploadedDoc.id}/${uploadedDoc.previousVersionId}`)
+    // Go directly to version history or admin dashboard
+    // (document diff feature removed - can revisit later)
+    toast.success(uploadedDoc.isUpdate ? 'Version uploaded!' : 'Document published!', {
+      description: `${uploadedDoc.name} is now available to users.`,
+    })
+
+    if (uploadedDoc.isUpdate) {
+      navigate(`/history/${uploadedDoc.id}`)
     } else {
-      // For new documents, show success and go back to admin dashboard
-      toast.success('Document published!', {
-        description: `${uploadedDoc.name} is now available to users.`,
-      })
       navigate('/admin')
     }
   }
@@ -250,7 +248,7 @@ export function DocumentUpload() {
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors font-medium"
               >
                 <Check className="w-4 h-4" />
-                {uploadedDoc.isUpdate ? 'Review Changes' : 'Confirm & Publish'}
+                Confirm & Publish
               </button>
               <button
                 onClick={handleCancel}
@@ -260,12 +258,6 @@ export function DocumentUpload() {
                 Cancel
               </button>
             </div>
-
-            {uploadedDoc.isUpdate && (
-              <p className="text-xs text-muted-foreground text-center">
-                You'll be able to compare changes with the previous version before publishing.
-              </p>
-            )}
           </div>
 
           {/* Right side - PDF preview */}

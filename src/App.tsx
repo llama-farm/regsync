@@ -4,7 +4,6 @@ import { Toaster } from 'sonner'
 import { AppShell } from './components/layout/AppShell'
 import { AdminDashboard } from './components/admin/AdminDashboard'
 import { DocumentUpload } from './components/admin/DocumentUpload'
-import { ChangeReview } from './components/admin/ChangeReview'
 import { VersionHistory } from './components/admin/VersionHistory'
 import { PolicyAssistant } from './components/user/PolicyAssistant'
 import { DocumentsList } from './components/shared/DocumentsList'
@@ -39,7 +38,6 @@ function AuthenticatedApp() {
         {/* Admin routes */}
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/upload" element={<DocumentUpload />} />
-        <Route path="/review/:documentId/:versionId" element={<ChangeReview />} />
         <Route path="/history/:documentId" element={<VersionHistory />} />
 
         {/* User routes - PolicyAssistant combines dashboard + chat */}
