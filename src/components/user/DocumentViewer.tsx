@@ -1,6 +1,9 @@
-import { X, FileText, ExternalLink, Calendar, User } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { X, FileText, ExternalLink, Calendar, User, History, ChevronRight, Loader2 } from 'lucide-react'
 import type { CitedSource } from '@/types/chat'
+import type { VersionMetadata } from '@/types/document'
 import { cn } from '@/lib/utils'
+import { documentsApi } from '@/api/documentsApi'
 
 // Format date for display
 function formatDate(dateString?: string): string | null {
@@ -33,16 +36,60 @@ function cleanFilename(filename?: string): string {
   return cleaned
 }
 
+type LeftPanelTab = 'content' | 'history'
+
 export function DocumentViewer({ source, onClose }: DocumentViewerProps) {
   const documentName = cleanFilename(source.filename || source.source)
   const confidencePercent = source.score ? Math.round(source.score * 100) : null
 
-  // Build PDF URL from the source filename
-  // The API serves files at /api/projects/default/regsync/documents/:docId/file
-  // But since we only have the filename, we'll use the policies dataset path
-  const pdfUrl = source.filename
-    ? `/api/projects/default/regsync/policies/${source.filename}`
+  const [leftTab, setLeftTab] = useState<LeftPanelTab>('content')
+  const [versions, setVersions] = useState<VersionMetadata[]>([])
+  const [loadingVersions, setLoadingVersions] = useState(false)
+  const [selectedVersionFilename, setSelectedVersionFilename] = useState<string | null>(null)
+
+  // Build PDF URL from the source filename or selected version
+  const currentFilename = selectedVersionFilename || source.filename
+  const pdfUrl = currentFilename
+    ? `/api/projects/default/regsync/policies/${currentFilename}`
     : null
+
+  // Load versions when history tab is selected
+  useEffect(() => {
+    if (leftTab === 'history' && source.document_id && versions.length === 0) {
+      loadVersions()
+    }
+  }, [leftTab, source.document_id])
+
+  const loadVersions = async () => {
+    if (!source.document_id) return
+
+    setLoadingVersions(true)
+    try {
+      const response = await documentsApi.listVersions(source.document_id)
+      // Sort by created_at ascending so oldest is first
+      const sortedVersions = [...response.versions].sort(
+        (a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
+      )
+      // Add version numbers
+      const numberedVersions = sortedVersions.map((v, idx) => ({
+        ...v,
+        version_number: idx + 1
+      }))
+      // Reverse for display (newest first)
+      setVersions(numberedVersions.reverse())
+    } catch (err) {
+      console.error('Failed to load versions:', err)
+    } finally {
+      setLoadingVersions(false)
+    }
+  }
+
+  const handleVersionClick = (version: VersionMetadata) => {
+    const filename = version.filename || version.file_name
+    if (filename) {
+      setSelectedVersionFilename(filename)
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm">
@@ -97,56 +144,142 @@ export function DocumentViewer({ source, onClose }: DocumentViewerProps) {
 
         {/* Content - split view */}
         <div className="flex-1 flex overflow-hidden">
-          {/* Left side - matching chunk content */}
+          {/* Left side - tab content */}
           <div className="w-1/3 border-r border-border flex flex-col">
-            <div className="px-4 py-3 border-b border-border bg-primary/5">
-              <h3 className="text-sm font-medium">Matching Content</h3>
-              <p className="text-xs text-muted-foreground">
-                From LlamaFarm RAG retrieval
-              </p>
+            {/* Tab switcher */}
+            <div className="flex border-b border-border">
+              <button
+                onClick={() => setLeftTab('content')}
+                className={cn(
+                  "flex-1 px-4 py-2.5 text-sm font-medium transition-colors",
+                  leftTab === 'content'
+                    ? "bg-primary/5 text-primary border-b-2 border-primary"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                )}
+              >
+                Matching Content
+              </button>
+              {source.document_id && (
+                <button
+                  onClick={() => setLeftTab('history')}
+                  className={cn(
+                    "flex-1 px-4 py-2.5 text-sm font-medium transition-colors flex items-center justify-center gap-1.5",
+                    leftTab === 'history'
+                      ? "bg-primary/5 text-primary border-b-2 border-primary"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                  )}
+                >
+                  <History className="w-3.5 h-3.5" />
+                  Versions
+                </button>
+              )}
             </div>
-            <div className="flex-1 overflow-auto p-4">
-              <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
-                <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                  {source.content}
-                </p>
-              </div>
 
-              {/* Chunk metadata */}
-              <div className="mt-4 space-y-2 text-xs text-muted-foreground">
-                {source.chunk_id && (
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">Chunk ID:</span>
-                    <code className="bg-muted px-1.5 py-0.5 rounded font-mono">
-                      {source.chunk_id}
-                    </code>
+            {/* Tab content */}
+            <div className="flex-1 overflow-auto">
+              {leftTab === 'content' ? (
+                <div className="p-4">
+                  <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
+                    <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                      {source.content}
+                    </p>
                   </div>
-                )}
-                {source.page_number && (
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">Page:</span>
-                    <span>{source.page_number}</span>
+
+                  {/* Chunk metadata */}
+                  <div className="mt-4 space-y-2 text-xs text-muted-foreground">
+                    {source.chunk_id && (
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">Chunk ID:</span>
+                        <code className="bg-muted px-1.5 py-0.5 rounded font-mono">
+                          {source.chunk_id}
+                        </code>
+                      </div>
+                    )}
+                    {source.page_number && (
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">Page:</span>
+                        <span>{source.page_number}</span>
+                      </div>
+                    )}
+                    {confidencePercent !== null && (
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">Relevance Score:</span>
+                        <span>{confidencePercent}%</span>
+                      </div>
+                    )}
+                    {formatDate(source.updated_at) && (
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">Updated:</span>
+                        <span>{formatDate(source.updated_at)}</span>
+                      </div>
+                    )}
+                    {source.updated_by && (
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">Updated By:</span>
+                        <span>{source.updated_by}</span>
+                      </div>
+                    )}
                   </div>
-                )}
-                {confidencePercent !== null && (
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">Relevance Score:</span>
-                    <span>{confidencePercent}%</span>
-                  </div>
-                )}
-                {formatDate(source.updated_at) && (
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">Updated:</span>
-                    <span>{formatDate(source.updated_at)}</span>
-                  </div>
-                )}
-                {source.updated_by && (
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">Updated By:</span>
-                    <span>{source.updated_by}</span>
-                  </div>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div className="p-4">
+                  {loadingVersions ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : versions.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground text-sm">
+                      No version history available
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground mb-3">
+                        Click a version to preview it
+                      </p>
+                      {versions.map((version) => {
+                        const versionFilename = version.filename || version.file_name
+                        const isSelected = selectedVersionFilename === versionFilename
+                        const isCurrent = source.filename === versionFilename && !selectedVersionFilename
+
+                        return (
+                          <button
+                            key={version.id}
+                            onClick={() => handleVersionClick(version)}
+                            className={cn(
+                              "w-full text-left p-3 rounded-lg border transition-colors",
+                              isSelected || isCurrent
+                                ? "border-primary bg-primary/5"
+                                : "border-border hover:border-primary/50 hover:bg-accent/50"
+                            )}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-sm">
+                                  Version {version.version_number}
+                                </span>
+                                {isCurrent && !selectedVersionFilename && (
+                                  <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                                    Current
+                                  </span>
+                                )}
+                              </div>
+                              <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                            </div>
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              {formatDate(version.created_at)} • {version.uploaded_by}
+                            </div>
+                            {version.notes && (
+                              <p className="mt-1 text-xs text-muted-foreground truncate">
+                                {version.notes}
+                              </p>
+                            )}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -156,7 +289,10 @@ export function DocumentViewer({ source, onClose }: DocumentViewerProps) {
               <div>
                 <h3 className="text-sm font-medium">Document Preview</h3>
                 <p className="text-xs text-muted-foreground">
-                  {source.filename || 'Policy document'}
+                  {currentFilename || 'Policy document'}
+                  {selectedVersionFilename && selectedVersionFilename !== source.filename && (
+                    <span className="ml-2 text-amber-500">(older version)</span>
+                  )}
                 </p>
               </div>
               {pdfUrl && (

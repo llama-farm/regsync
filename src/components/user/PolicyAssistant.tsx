@@ -134,9 +134,9 @@ export function PolicyAssistant() {
     return confidence !== null && confidence < 50
   }
 
-  // Handle clicking on a document to ask about latest updates
+  // Handle clicking on a document to ask about it
   const handleDocumentClick = (_documentId: string, documentName: string) => {
-    handleSend(`What are the latest updates in ${documentName}?`)
+    handleSend(`Tell me about ${documentName}`)
   }
 
   // Handle feedback click
