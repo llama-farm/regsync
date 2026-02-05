@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FileText, History, Upload, Eye, RefreshCw, Loader2, AlertCircle } from 'lucide-react'
+import { FileText, History, Upload, Eye, RefreshCw, Loader2, AlertCircle, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
 import type { PolicyDocument } from '@/types/document'
 import { documentsApi } from '@/api/documentsApi'
 
@@ -9,9 +10,10 @@ interface PolicyCardProps {
   onView: () => void
   onUpdate: () => void
   onHistory: () => void
+  onDelete: () => void
 }
 
-function PolicyCard({ policy, onView, onUpdate, onHistory }: PolicyCardProps) {
+function PolicyCard({ policy, onView, onUpdate, onHistory, onDelete }: PolicyCardProps) {
   const updatedDate = new Date(policy.updated_at).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -27,6 +29,13 @@ function PolicyCard({ policy, onView, onUpdate, onHistory }: PolicyCardProps) {
             {policy.short_title || 'DOC'}
           </span>
         </div>
+        <button
+          onClick={onDelete}
+          className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded transition-colors"
+          title="Delete document"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
       </div>
 
       <h3 className="font-medium mb-2 line-clamp-2 font-display">{policy.name}</h3>
@@ -97,6 +106,26 @@ export function AdminDashboard() {
     window.open(fileUrl, '_blank')
   }
 
+  const handleDelete = async (policy: PolicyDocument) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to delete "${policy.name}"?\n\nThis will permanently remove the document and all its versions.`
+    )
+    if (!confirmed) return
+
+    try {
+      await documentsApi.deleteDocument(policy.id)
+      setPolicies(policies.filter(p => p.id !== policy.id))
+      toast.success('Document deleted', {
+        description: `${policy.name} has been removed.`,
+      })
+    } catch (err) {
+      console.error('Failed to delete document:', err)
+      toast.error('Failed to delete document', {
+        description: err instanceof Error ? err.message : 'An error occurred',
+      })
+    }
+  }
+
   return (
     <div className="max-w-6xl mx-auto">
       {/* Header */}
@@ -158,6 +187,7 @@ export function AdminDashboard() {
                 onView={() => handleView(policy)}
                 onUpdate={() => navigate('/upload', { state: { document: policy } })}
                 onHistory={() => navigate(`/history/${policy.id}`)}
+                onDelete={() => handleDelete(policy)}
               />
             ))}
           </div>

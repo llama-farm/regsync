@@ -405,7 +405,7 @@ app.get('/v1/projects/:namespace/:project/documents/:documentId/file', (req, res
 })
 
 // Delete document
-app.delete('/v1/projects/:namespace/:project/documents/:documentId', (req, res) => {
+app.delete('/v1/projects/:namespace/:project/documents/:documentId', async (req, res) => {
   const metadata = loadMetadata()
   const docIndex = metadata.documents.findIndex(d => d.id === req.params.documentId)
 
@@ -413,11 +413,13 @@ app.delete('/v1/projects/:namespace/:project/documents/:documentId', (req, res) 
     return res.status(404).json({ error: 'Document not found' })
   }
 
-  // Delete all version files
+  // Delete all version files from local storage and LlamaFarm
   const doc = metadata.documents[docIndex]
   for (const version of doc.versions) {
     const filePath = path.join(POLICIES_DIR, version.filename)
     if (fs.existsSync(filePath)) {
+      // Try to delete from LlamaFarm RAG
+      await deleteFromLlamaFarm(doc.id)
       fs.unlinkSync(filePath)
     }
   }
