@@ -100,30 +100,18 @@ async function deleteFromLlamaFarm(documentId) {
 // Upload file to LlamaFarm RAG dataset
 async function uploadToLlamaFarm(filePath, originalName, metadata = {}) {
   try {
-    const FormData = (await import('form-data')).default
-    const form = new FormData()
+    // Use native FormData with Blob for better compatibility
+    const fileBuffer = fs.readFileSync(filePath)
+    const blob = new Blob([fileBuffer], { type: 'application/pdf' })
 
-    form.append('file', fs.createReadStream(filePath), {
-      filename: originalName,
-      contentType: 'application/pdf'
-    })
-
-    // Add metadata as form fields
-    if (metadata.document_name) {
-      form.append('metadata', JSON.stringify({
-        document_name: metadata.document_name,
-        short_title: metadata.short_title,
-        uploaded_by: metadata.uploaded_by,
-        document_id: metadata.document_id
-      }))
-    }
+    const formData = new FormData()
+    formData.append('file', blob, originalName)
 
     const url = `${LLAMAFARM_URL}/v1/projects/${LLAMAFARM_NAMESPACE}/${LLAMAFARM_PROJECT}/datasets/${LLAMAFARM_DATASET}/data?auto_process=true`
 
     const response = await fetch(url, {
       method: 'POST',
-      body: form,
-      headers: form.getHeaders()
+      body: formData
     })
 
     if (!response.ok) {
