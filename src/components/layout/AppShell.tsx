@@ -61,7 +61,7 @@ export function AppShell({ children }: AppShellProps) {
             "w-2 h-2 rounded-full",
             isConnected ? "bg-green-500" : "bg-amber-500"
           )} />
-          {isConnected ? "Connected to LlamaFarm" : "Demo Mode"}
+          {isConnected ? "Connected" : "Connecting..."}
         </span>
         <span className="text-muted-foreground/60">|</span>
         <span>Last sync: {lastSync}</span>

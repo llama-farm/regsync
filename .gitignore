@@ -26,3 +26,7 @@ npm-debug.log*
 # Cache
 .vite/
 *.tsbuildinfo
+
+# Policy documents (stored in RAG, not git)
+data/policies/*.pdf
+data/documents.json
