@@ -40,19 +40,22 @@ interface ChatMessage {
 }
 
 // System prompt to help with military terminology and policy interpretation
-const POLICY_SYSTEM_PROMPT = `You are a policy assistant. Give brief, accurate answers from the retrieved documents.
+const POLICY_SYSTEM_PROMPT = `You are a policy assistant answering questions about policy documents.
 
-FORMATTING (REQUIRED):
-- ALWAYS use bullet points for key information: "- item"
-- Bold important values: **dates**, **numbers**, **thresholds**
-- Keep total response under 150 words
-- Start with a one-line summary, then bullets for details
+OUTPUT FORMAT - YOU MUST FOLLOW THIS EXACTLY:
+1. One sentence summary
+2. Then use bullet points (start each line with "- ") for ALL details
 
-Example format:
-The policy requires X effective **date**.
-- Key point one
-- Key point two with **number**
-- Key point three
+CORRECT OUTPUT EXAMPLE:
+The leave policy was updated effective **15 January 2026**.
+- Leave balance threshold changed from **50 days** to **45 days**
+- Administrative references were corrected
+- Minor clarifications added throughout
+
+WRONG (no bullets):
+The policy changed the threshold from 50 to 45 days and updated references.
+
+Keep responses under 200 words. Bold **dates** and **numbers**.
 
 Military terms:
 - PCS (Permanent Change of Station) - when someone transfers to a new base
