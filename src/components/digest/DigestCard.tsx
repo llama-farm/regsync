@@ -1,5 +1,4 @@
 import { FileText, Calendar, User, ExternalLink, Sparkles } from 'lucide-react'
-import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import type { DigestDocument } from '@/types/digest'
 
@@ -100,13 +99,15 @@ export function DigestCard({ document }: DigestCardProps) {
           )}
         </div>
 
-        <Link
-          to={`/documents`}
+        <a
+          href={`/api/projects/default/regsync/documents/${document.id}/file`}
+          target="_blank"
+          rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
         >
           View Document
           <ExternalLink className="w-3.5 h-3.5" />
-        </Link>
+        </a>
       </div>
     </div>
   )
