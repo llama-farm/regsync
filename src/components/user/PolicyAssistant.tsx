@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Loader2, FileText, Clock, ArrowRight, Search, ThumbsUp, ThumbsDown, MessageSquare, Printer, AlertCircle, HelpCircle, Plus } from 'lucide-react'
+import { Send, Square, Loader2, FileText, Clock, ArrowRight, Search, ThumbsUp, ThumbsDown, MessageSquare, Printer, AlertCircle, HelpCircle, Plus } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { cn } from '@/lib/utils'
 import type { ChatMessage, CitedSource } from '@/types/chat'
@@ -63,10 +63,14 @@ export function PolicyAssistant() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [isTyping, setIsTyping] = useState(false)
   const [feedback, setFeedback] = useState<Record<string, 'up' | 'down' | null>>({})
   const [recentUpdates, setRecentUpdates] = useState<RecentUpdate[]>([])
   const [selectedSource, setSelectedSource] = useState<CitedSource | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
+  const typingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const pendingMessageRef = useRef<{ message: ChatMessage; fullContent: string } | null>(null)
 
   // Load chat history from localStorage on mount
   useEffect(() => {
@@ -92,6 +96,15 @@ export function PolicyAssistant() {
       console.error('Failed to save chat history:', err)
     }
   }, [messages])
+
+  // Cleanup typing interval on unmount
+  useEffect(() => {
+    return () => {
+      if (typingIntervalRef.current) {
+        clearInterval(typingIntervalRef.current)
+      }
+    }
+  }, [])
 
   // Fetch recent document updates from API (only docs with 2+ versions)
   useEffect(() => {
@@ -237,7 +250,7 @@ export function PolicyAssistant() {
 
   const handleSend = async (queryOverride?: string) => {
     const query = queryOverride || input
-    if (!query.trim() || isLoading) return
+    if (!query.trim() || isLoading || isTyping) return
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -277,7 +290,8 @@ export function PolicyAssistant() {
         timestamp: new Date().toISOString(),
       }
 
-      setMessages((prev) => [...prev, assistantMessage])
+      // Start typing effect
+      startTypingEffect(assistantMessage, response.answer)
     } catch (err) {
       console.error('Chat API error:', err)
 
@@ -289,14 +303,89 @@ export function PolicyAssistant() {
         timestamp: new Date().toISOString(),
       }
       setMessages((prev) => [...prev, errorMessage])
-    } finally {
       setIsLoading(false)
     }
+  }
+
+  // Typing effect: gradually reveal message content
+  const startTypingEffect = (message: ChatMessage, fullContent: string) => {
+    setIsLoading(false)
+    setIsTyping(true)
+    pendingMessageRef.current = { message, fullContent }
+
+    // Add message with empty content initially
+    setMessages((prev) => [...prev, { ...message, content: '' }])
+
+    let charIndex = 0
+    const charsPerTick = 3 // Characters to add per interval
+    const interval = 15 // Milliseconds between updates
+
+    typingIntervalRef.current = setInterval(() => {
+      charIndex += charsPerTick
+      const currentContent = fullContent.slice(0, charIndex)
+
+      // Update the last message with current content
+      setMessages((prev) => {
+        const updated = [...prev]
+        if (updated.length > 0) {
+          updated[updated.length - 1] = {
+            ...updated[updated.length - 1],
+            content: currentContent,
+          }
+        }
+        return updated
+      })
+
+      // Check if done
+      if (charIndex >= fullContent.length) {
+        finishTypingEffect()
+      }
+    }, interval)
+  }
+
+  // Complete the typing effect
+  const finishTypingEffect = () => {
+    if (typingIntervalRef.current) {
+      clearInterval(typingIntervalRef.current)
+      typingIntervalRef.current = null
+    }
+
+    // Ensure full content is shown
+    if (pendingMessageRef.current) {
+      const { message, fullContent } = pendingMessageRef.current
+      setMessages((prev) => {
+        const updated = [...prev]
+        if (updated.length > 0) {
+          updated[updated.length - 1] = {
+            ...message,
+            content: fullContent,
+          }
+        }
+        return updated
+      })
+      pendingMessageRef.current = null
+    }
+
+    setIsTyping(false)
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     handleSend()
+  }
+
+  const handleStop = () => {
+    // Stop API request if in progress
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+    setIsLoading(false)
+
+    // Stop typing effect and show full content
+    if (isTyping) {
+      finishTypingEffect()
+    }
   }
 
   const handleClear = () => {
@@ -480,7 +569,8 @@ export function PolicyAssistant() {
                             </div>
                           )}
 
-                          {/* Feedback and print buttons */}
+                          {/* Feedback and print buttons - hidden during typing */}
+                          {!(isTyping && msgIndex === messages.length - 1) && (
                           <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
                             <div className="flex items-center gap-3">
                               <span className="text-xs text-muted-foreground">Was this helpful?</span>
@@ -517,6 +607,7 @@ export function PolicyAssistant() {
                               Print Summary
                             </button>
                           </div>
+                          )}
                         </>
                       ) : (
                         <p className="font-body">{message.content}</p>
@@ -532,8 +623,8 @@ export function PolicyAssistant() {
                     />
                   )}
 
-                  {/* Related questions - show after last assistant message */}
-                  {message.role === 'assistant' && msgIndex === messages.length - 1 && !isLoading && (
+                  {/* Related questions - show after last assistant message when not loading/typing */}
+                  {message.role === 'assistant' && msgIndex === messages.length - 1 && !isLoading && !isTyping && (
                     <div className="mt-4">
                       <div className="flex items-center gap-2 mb-2">
                         <MessageSquare className="w-3.5 h-3.5 text-muted-foreground" />
@@ -580,15 +671,26 @@ export function PolicyAssistant() {
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Ask a follow-up question..."
                 className="flex-1 px-4 py-3 bg-card border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring font-body"
-                disabled={isLoading}
+                disabled={isLoading || isTyping}
               />
-              <button
-                type="submit"
-                disabled={!input.trim() || isLoading}
-                className="px-4 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <Send className="w-5 h-5" />
-              </button>
+              {isLoading || isTyping ? (
+                <button
+                  type="button"
+                  onClick={handleStop}
+                  className="px-4 py-3 bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90 transition-colors"
+                  title={isTyping ? "Skip to full answer" : "Stop generating"}
+                >
+                  <Square className="w-5 h-5" />
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={!input.trim()}
+                  className="px-4 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Send className="w-5 h-5" />
+                </button>
+              )}
             </div>
           </form>
         </div>

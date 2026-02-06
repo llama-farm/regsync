@@ -40,15 +40,15 @@ interface ChatMessage {
 }
 
 // System prompt to help with military terminology and policy interpretation
-const POLICY_SYSTEM_PROMPT = `You are a policy assistant for the 73rd Medical Wing. Your role is to help personnel understand Air Force regulations and local policies.
+const POLICY_SYSTEM_PROMPT = `You are a policy assistant. Give brief, accurate answers from the retrieved documents.
 
-When answering questions:
-1. Use the retrieved document context to provide accurate, specific answers
-2. Cite the relevant section or paragraph when possible
-3. If the context doesn't contain the answer, say so clearly
-4. Use clear, concise language appropriate for military personnel
+RULES:
+- Maximum 150 words total
+- Use bullet points (- item) for any list
+- Bold **key dates/numbers**
+- If unsure, say so
 
-Military terminology reference:
+Military terms:
 - PCS (Permanent Change of Station) - when someone transfers to a new base
 - TDY (Temporary Duty) - short-term assignments away from home station
 - CRO (Change of Reporting Official) - when a rater or supervisor changes
@@ -93,29 +93,46 @@ export const chatApi = {
       // Get all documents to build a lookup map
       const { documents } = await documentsApi.listDocuments()
 
-      // Build filename -> document info map
-      const docInfoMap = new Map<string, { updated_at: string; updated_by: string }>()
+      // Build filename -> document info map with version status
+      interface DocInfo {
+        updated_at: string
+        updated_by: string
+        current_filename: string | null
+        document_id: string
+      }
+      const docInfoMap = new Map<string, DocInfo>()
       for (const doc of documents) {
-        // Store by document name (which matches the filename pattern)
+        // Find the current version's filename (server returns versions but type doesn't include it)
+        const versions = (doc as unknown as { versions?: Array<{ id: string; filename?: string }> }).versions
+        const currentVersion = versions?.find(v => v.id === doc.current_version_id)
         docInfoMap.set(doc.name, {
           updated_at: doc.updated_at,
-          updated_by: 'Policy Administrator', // Default since we don't store uploader in doc
+          updated_by: 'Policy Administrator',
+          current_filename: currentVersion?.filename || null,
+          document_id: doc.id,
         })
       }
 
-      // Enrich each source with document info
+      // Helper to normalize filename for comparison (remove timestamp prefix and extension)
+      const normalizeFilename = (f: string) => f.replace(/^\d{13}-/, '').replace(/\.pdf$/i, '').toLowerCase()
+
+      // Enrich each source with document info and version status
       return sources.map(source => {
         const filename = source.filename || source.source || ''
-        // Try to match by partial filename (remove timestamp prefix)
-        const cleanName = filename.replace(/^\d{13}-/, '').replace(/\.pdf$/i, '')
+        const cleanName = normalizeFilename(filename)
 
         // Find matching document
         for (const [docName, info] of docInfoMap) {
-          if (docName.includes(cleanName) || cleanName.includes(docName.replace(/\.pdf$/i, ''))) {
+          if (docName.toLowerCase().includes(cleanName) || cleanName.includes(normalizeFilename(docName))) {
+            // Check if this source is from the current version (compare normalized filenames)
+            const currentNormalized = info.current_filename ? normalizeFilename(info.current_filename) : null
+            const isCurrent = currentNormalized === cleanName
             return {
               ...source,
               updated_at: source.updated_at || info.updated_at,
               updated_by: source.updated_by || info.updated_by,
+              document_id: source.document_id || info.document_id,
+              is_current: isCurrent,
             }
           }
         }
@@ -264,7 +281,7 @@ export const chatApi = {
       projectUrl('/chat/completions'),
       {
         messages: messagesWithSystem,
-        max_tokens: options?.maxTokens || 1024,
+        max_tokens: options?.maxTokens || 600,  // Balanced for good answers
         temperature: options?.temperature || 0.7,
         // LlamaFarm expects flat RAG parameters (not nested rag object)
         // hybrid retrieval combines semantic (embeddings) with BM25 (keyword) search
@@ -272,7 +289,7 @@ export const chatApi = {
         ...(ragEnabled && {
           rag_enabled: true,
           database: options?.database || DATASET,
-          rag_top_k: 8,
+          rag_top_k: 4,  // Reduced from 8 for speed
           rag_retrieval_strategy: 'hybrid',
         }),
       }

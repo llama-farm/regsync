@@ -18,7 +18,7 @@ export function FullPageDropZone({
   subMessage = 'Release to add document',
 }: FullPageDropZoneProps) {
   const [isDraggingOver, setIsDraggingOver] = useState(false)
-  const [dragCounter, setDragCounter] = useState(0)
+  const [, setDragCounter] = useState(0)
 
   const handleDragEnter = useCallback((e: DragEvent) => {
     e.preventDefault()

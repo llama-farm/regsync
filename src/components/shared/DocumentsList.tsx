@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search, FileText, Loader2, Calendar, User, ExternalLink, History, MapPin } from 'lucide-react'
+import { Search, FileText, Loader2, Calendar, User, History, MapPin } from 'lucide-react'
 import type { PolicyDocument } from '@/types/document'
 import { documentsApi } from '@/api/documentsApi'
 import { DocumentChangesModal } from './DocumentChanges'
@@ -213,19 +213,20 @@ export function DocumentsList() {
                         <>
                           <button
                             onClick={() => setSelectedDoc(doc)}
-                            className="p-2 hover:bg-accent rounded-md transition-colors"
-                            title="View Changes"
+                            className="px-3 py-1.5 text-xs border border-border rounded-md hover:bg-accent transition-colors"
                           >
-                            <History className="w-4 h-4 text-muted-foreground" />
+                            <span className="flex items-center gap-1.5">
+                              <History className="w-3.5 h-3.5" />
+                              Changes
+                            </span>
                           </button>
                           <a
                             href={getDocumentUrl(doc.id)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="p-2 hover:bg-accent rounded-md transition-colors"
-                            title="Open Document"
+                            className="px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
                           >
-                            <ExternalLink className="w-4 h-4 text-muted-foreground" />
+                            View
                           </a>
                         </>
                       )}

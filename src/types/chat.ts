@@ -12,6 +12,8 @@ export interface CitedSource {
   filename?: string
   page_number?: number
   source?: string
+  // Version status for UI display
+  is_current?: boolean
 }
 
 export interface ChatMessage {

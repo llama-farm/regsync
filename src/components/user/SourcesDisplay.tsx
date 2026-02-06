@@ -52,7 +52,14 @@ export function SourcesDisplay({ sources, onViewDocument }: SourcesDisplayProps)
   const [expandedDocs, setExpandedDocs] = useState<Set<string>>(new Set())
 
   const groupedSources = groupByDocument(sources)
-  const documents = Array.from(groupedSources.entries())
+  // Sort documents: Current first, then Outdated, then unknown
+  const documents = Array.from(groupedSources.entries()).sort((a, b) => {
+    const aIsCurrent = a[1][0]?.is_current
+    const bIsCurrent = b[1][0]?.is_current
+    if (aIsCurrent === true && bIsCurrent !== true) return -1
+    if (bIsCurrent === true && aIsCurrent !== true) return 1
+    return 0
+  })
 
   const toggleDoc = (filename: string) => {
     setExpandedDocs(prev => {
@@ -118,6 +125,17 @@ export function SourcesDisplay({ sources, onViewDocument }: SourcesDisplayProps)
                   </div>
 
                   <div className="flex items-center gap-2 flex-shrink-0">
+                    {/* Version status badge */}
+                    {chunks[0].is_current === true ? (
+                      <span className="text-xs font-medium px-2 py-0.5 rounded bg-green-500/10 text-green-600">
+                        Current
+                      </span>
+                    ) : chunks[0].is_current === false ? (
+                      <span className="text-xs font-medium px-2 py-0.5 rounded bg-amber-500/10 text-amber-600">
+                        Outdated
+                      </span>
+                    ) : null}
+
                     <span className={cn(
                       "text-xs font-medium px-2 py-0.5 rounded",
                       confidenceColor
