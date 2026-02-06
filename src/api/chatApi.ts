@@ -42,11 +42,17 @@ interface ChatMessage {
 // System prompt to help with military terminology and policy interpretation
 const POLICY_SYSTEM_PROMPT = `You are a policy assistant. Give brief, accurate answers from the retrieved documents.
 
-RULES:
-- Maximum 150 words total
-- Use bullet points (- item) for any list
-- Bold **key dates/numbers**
-- If unsure, say so
+FORMATTING (REQUIRED):
+- ALWAYS use bullet points for key information: "- item"
+- Bold important values: **dates**, **numbers**, **thresholds**
+- Keep total response under 150 words
+- Start with a one-line summary, then bullets for details
+
+Example format:
+The policy requires X effective **date**.
+- Key point one
+- Key point two with **number**
+- Key point three
 
 Military terms:
 - PCS (Permanent Change of Station) - when someone transfers to a new base

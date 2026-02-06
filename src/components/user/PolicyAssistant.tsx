@@ -677,7 +677,7 @@ export function PolicyAssistant() {
                 <button
                   type="button"
                   onClick={handleStop}
-                  className="px-4 py-3 bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90 transition-colors"
+                  className="px-4 py-3 bg-muted text-muted-foreground rounded-lg hover:bg-accent transition-colors"
                   title={isTyping ? "Skip to full answer" : "Stop generating"}
                 >
                   <Square className="w-5 h-5" />
