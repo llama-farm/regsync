@@ -26,6 +26,13 @@ export default defineConfig({
         secure: false,
         rewrite: (path) => path.replace(/^\/api/, '/v1'),
       },
+      // Digest API goes to local server
+      '/api/projects/default/regsync/digest': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api/, '/v1'),
+      },
       // Policy PDF files served from local server
       '/api/projects/default/regsync/policies': {
         target: 'http://localhost:3001',
