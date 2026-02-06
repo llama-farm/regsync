@@ -13,8 +13,17 @@ import { fileURLToPath } from 'url'
 import { createRequire } from 'module'
 const require = createRequire(import.meta.url)
 const { PDFParse } = require('pdf-parse')
-import { diffLines } from 'diff'
+import fastDiff from 'fast-diff'
 import stringSimilarity from 'string-similarity'
+import {
+  getWeekBounds,
+  getMonthBounds,
+  formatPeriodLabel,
+  computeDigest,
+  getPreviousWeek,
+  getPreviousMonth,
+  validateArchiveLimit
+} from './digest.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -654,36 +663,38 @@ function splitIntoSections(text) {
 
 // Compute diff between two texts
 function computeTextDiff(oldText, newText) {
-  const oldSections = splitIntoSections(oldText)
-  const newSections = splitIntoSections(newText)
+  // Normalize whitespace for comparison (no 10KB truncation - process full documents)
+  const normalizedOld = oldText.replace(/\s+/g, ' ').trim()
+  const normalizedNew = newText.replace(/\s+/g, ' ').trim()
+
+  // fast-diff returns: [[0, 'equal'], [-1, 'removed'], [1, 'added'], ...]
+  // Types: -1 = DELETE, 0 = EQUAL, 1 = INSERT
+  const diff = fastDiff(normalizedOld, normalizedNew)
 
   const changes = []
-
-  // Simple comparison - find added, removed, modified sections
-  const diff = diffLines(oldText.substring(0, 10000), newText.substring(0, 10000), {
-    ignoreWhitespace: true
-  })
-
   let changeIndex = 0
-  for (const part of diff) {
-    if (part.added || part.removed) {
-      const lines = part.value.trim().split('\n').filter(l => l.trim())
-      if (lines.length > 0) {
-        const sectionTitle = lines[0].substring(0, 60) + (lines[0].length > 60 ? '...' : '')
-        changes.push({
-          section: `Section ${++changeIndex}: ${sectionTitle}`,
-          type: part.added ? 'added' : 'removed',
-          summary: part.added
-            ? `New content added (${lines.length} lines)`
-            : `Content removed (${lines.length} lines)`,
-          before: part.removed ? part.value.substring(0, 500) : undefined,
-          after: part.added ? part.value.substring(0, 500) : undefined
-        })
-      }
-    }
+
+  for (const [type, text] of diff) {
+    if (type === 0) continue // Skip unchanged
+
+    const trimmedText = text.trim()
+    if (trimmedText.length < 10) continue // Skip tiny changes
+
+    const sectionTitle = trimmedText.substring(0, 60) + (trimmedText.length > 60 ? '...' : '')
+    const sentences = trimmedText.split(/[.!?]\s+/).filter(s => s.length > 5).length
+
+    changes.push({
+      section: `Section ${++changeIndex}: ${sectionTitle}`,
+      type: type === 1 ? 'added' : 'removed',
+      summary: type === 1
+        ? `New content added (~${sentences} sentences)`
+        : `Content removed (~${sentences} sentences)`,
+      before: type === -1 ? trimmedText.substring(0, 500) : undefined,
+      after: type === 1 ? trimmedText.substring(0, 500) : undefined
+    })
   }
 
-  return changes.slice(0, 10) // Limit to 10 changes for UI
+  return changes.slice(0, 15) // Limit to 15 changes for UI
 }
 
 // Generate AI summary of changes using LlamaFarm
@@ -970,6 +981,85 @@ app.post('/v1/projects/:namespace/:project/documents/detect-matches', upload.sin
     } catch {}
     res.status(500).json({ error: 'Failed to analyze document' })
   }
+})
+
+// ============================================
+// Digest API - Weekly/Monthly Policy Summaries
+// ============================================
+
+// Get policy digest for a time period
+app.get('/v1/projects/:namespace/:project/digest', (req, res) => {
+  const { period, year, week, month } = req.query
+
+  // Validate required params
+  if (!period || !['week', 'month'].includes(period)) {
+    return res.status(400).json({ error: 'period must be "week" or "month"' })
+  }
+
+  // Parse year or use default
+  let parsedYear = parseInt(year, 10)
+  let parsedPeriodNum
+
+  if (period === 'week') {
+    // Default to previous week if not specified
+    if (!year || !week) {
+      const prev = getPreviousWeek()
+      parsedYear = prev.year
+      parsedPeriodNum = prev.week
+    } else {
+      parsedPeriodNum = parseInt(week, 10)
+      if (isNaN(parsedPeriodNum) || parsedPeriodNum < 1 || parsedPeriodNum > 53) {
+        return res.status(400).json({ error: 'week must be a number between 1 and 53' })
+      }
+    }
+  } else {
+    // Default to previous month if not specified
+    if (!year || !month) {
+      const prev = getPreviousMonth()
+      parsedYear = prev.year
+      parsedPeriodNum = prev.month
+    } else {
+      parsedPeriodNum = parseInt(month, 10)
+      if (isNaN(parsedPeriodNum) || parsedPeriodNum < 1 || parsedPeriodNum > 12) {
+        return res.status(400).json({ error: 'month must be a number between 1 and 12' })
+      }
+    }
+  }
+
+  if (isNaN(parsedYear) || parsedYear < 2000 || parsedYear > 2100) {
+    return res.status(400).json({ error: 'year must be a valid 4-digit year' })
+  }
+
+  // Validate archive limit (3 months)
+  const validation = validateArchiveLimit(period, parsedYear, parsedPeriodNum)
+  if (!validation.valid) {
+    return res.status(400).json({ error: validation.reason })
+  }
+
+  // Get date bounds for the period
+  const bounds = period === 'week'
+    ? getWeekBounds(parsedYear, parsedPeriodNum)
+    : getMonthBounds(parsedYear, parsedPeriodNum)
+
+  // Load documents and compute digest
+  const metadata = loadMetadata()
+  const { documents, stats } = computeDigest(metadata.documents, bounds.start, bounds.end)
+
+  // Format response
+  const periodInfo = {
+    type: period,
+    year: parsedYear,
+    ...(period === 'week' ? { week: parsedPeriodNum } : { month: parsedPeriodNum }),
+    start_date: bounds.start.toISOString().split('T')[0],
+    end_date: bounds.end.toISOString().split('T')[0],
+    label: formatPeriodLabel(period, bounds.start, bounds.end, parsedYear, parsedPeriodNum)
+  }
+
+  res.json({
+    period: periodInfo,
+    stats,
+    documents
+  })
 })
 
 app.listen(PORT, () => {

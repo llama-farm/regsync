@@ -8,6 +8,7 @@ import { DocumentUpload } from './components/admin/DocumentUpload'
 import { VersionHistory } from './components/admin/VersionHistory'
 import { PolicyAssistant } from './components/user/PolicyAssistant'
 import { DocumentsList } from './components/shared/DocumentsList'
+import { DigestPage } from './components/digest/DigestPage'
 import { useAuth } from './contexts/AuthContext'
 
 // Protected route wrapper for admin-only routes
@@ -54,6 +55,7 @@ function AppRoutes() {
 
         {/* Shared routes */}
         <Route path="/documents" element={<DocumentsList />} />
+        <Route path="/updates" element={<DigestPage />} />
 
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />

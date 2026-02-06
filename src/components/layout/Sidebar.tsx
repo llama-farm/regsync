@@ -5,6 +5,7 @@ import {
   FileText,
   MessageSquare,
   Users,
+  Bell,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -78,6 +79,13 @@ export function Sidebar() {
           to="/documents"
           icon={<FileText className="w-4 h-4" />}
           label="Documents"
+        />
+
+        {/* Shared: Policy Updates digest */}
+        <NavItem
+          to="/updates"
+          icon={<Bell className="w-4 h-4" />}
+          label="Updates"
         />
 
         {/* Admin Management - superadmin only */}
