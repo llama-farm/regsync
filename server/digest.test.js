@@ -225,7 +225,7 @@ describe('getPreviousMonth', () => {
 })
 
 describe('validateArchiveLimit', () => {
-  test('rejects periods more than 3 months ago', () => {
+  test('rejects periods more than 12 months ago', () => {
     const result = validateArchiveLimit('month', 2020, 1)
     assert.strictEqual(result.valid, false)
     assert.ok(result.reason?.includes('archive limit'))
@@ -240,6 +240,13 @@ describe('validateArchiveLimit', () => {
   test('accepts recent periods', () => {
     const now = new Date()
     const result = validateArchiveLimit('month', now.getFullYear(), now.getMonth() + 1)
+    assert.strictEqual(result.valid, true)
+  })
+
+  test('accepts periods within 12 months', () => {
+    const sixMonthsAgo = new Date()
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+    const result = validateArchiveLimit('month', sixMonthsAgo.getFullYear(), sixMonthsAgo.getMonth() + 1)
     assert.strictEqual(result.valid, true)
   })
 })

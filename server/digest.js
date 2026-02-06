@@ -222,7 +222,7 @@ function getPreviousMonth() {
 }
 
 /**
- * Validate that the requested period is within the 3-month archive limit
+ * Validate that the requested period is within the 12-month archive limit
  * @param {'week' | 'month'} periodType
  * @param {number} year
  * @param {number} periodNum
@@ -230,22 +230,25 @@ function getPreviousMonth() {
  */
 function validateArchiveLimit(periodType, year, periodNum) {
   const now = new Date()
-  const threeMonthsAgo = new Date(now)
-  threeMonthsAgo.setMonth(now.getMonth() - 3)
+  const twelveMonthsAgo = new Date(now)
+  twelveMonthsAgo.setMonth(now.getMonth() - 12)
 
-  let periodStart
+  let periodStart, periodEnd
   if (periodType === 'week') {
     const bounds = getWeekBounds(year, periodNum)
     periodStart = bounds.start
+    periodEnd = bounds.end
   } else {
     const bounds = getMonthBounds(year, periodNum)
     periodStart = bounds.start
+    periodEnd = bounds.end
   }
 
-  if (periodStart < threeMonthsAgo) {
-    return { valid: false, reason: 'Requested period is outside the 3-month archive limit' }
+  if (periodStart < twelveMonthsAgo) {
+    return { valid: false, reason: 'Requested period is outside the 12-month archive limit' }
   }
 
+  // Allow current period (end date can be in the future for current week/month)
   if (periodStart > now) {
     return { valid: false, reason: 'Cannot view future periods' }
   }

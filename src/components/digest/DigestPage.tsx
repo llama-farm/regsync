@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Bell, Loader2, AlertCircle, Inbox } from 'lucide-react'
+import { Bell, Loader2, AlertCircle, Inbox, Mail, X, Check } from 'lucide-react'
 import { digestApi } from '@/api/digestApi'
 import { PeriodSelector } from './PeriodSelector'
 import { DigestCard } from './DigestCard'
@@ -22,42 +22,43 @@ function getISOWeekYear(date: Date): number {
   return d.getUTCFullYear()
 }
 
-// Get previous week (default view)
-function getPreviousWeek(): { year: number; week: number } {
+// Get current week
+function getCurrentWeek(): { year: number; week: number } {
   const now = new Date()
-  const lastWeek = new Date(now)
-  lastWeek.setDate(now.getDate() - 7)
   return {
-    year: getISOWeekYear(lastWeek),
-    week: getISOWeek(lastWeek),
+    year: getISOWeekYear(now),
+    week: getISOWeek(now),
   }
 }
 
-// Get previous month (default view)
-function getPreviousMonth(): { year: number; month: number } {
+// Get current month
+function getCurrentMonth(): { year: number; month: number } {
   const now = new Date()
-  let year = now.getFullYear()
-  let month = now.getMonth() // 0-indexed
-  if (month === 0) {
-    year--
-    month = 12
+  return {
+    year: now.getFullYear(),
+    month: now.getMonth() + 1,
   }
-  return { year, month }
 }
 
 export function DigestPage() {
+  // Default to current week/month to show recent updates
   const [periodType, setPeriodType] = useState<'week' | 'month'>('week')
-  const [year, setYear] = useState<number>(() => getPreviousWeek().year)
-  const [periodNum, setPeriodNum] = useState<number>(() => getPreviousWeek().week)
+  const [year, setYear] = useState<number>(() => getCurrentWeek().year)
+  const [periodNum, setPeriodNum] = useState<number>(() => getCurrentWeek().week)
 
   const [digest, setDigest] = useState<DigestResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Calculate 3-month limit
+  // Email modal state
+  const [showEmailModal, setShowEmailModal] = useState(false)
+  const [email, setEmail] = useState('')
+  const [emailSaved, setEmailSaved] = useState(false)
+
+  // Calculate 12-month limit
   const getMinDate = useCallback(() => {
     const now = new Date()
-    now.setMonth(now.getMonth() - 3)
+    now.setMonth(now.getMonth() - 12)
     return now
   }, [])
 
@@ -69,28 +70,30 @@ export function DigestPage() {
       const currentYear = getISOWeekYear(now)
       // Can go next if not at current week
       if (year < currentYear) return true
-      return periodNum < currentWeek - 1 // -1 because we default to previous week
+      return periodNum < currentWeek
     } else {
       const currentMonth = now.getMonth() + 1
       const currentYear = now.getFullYear()
       if (year < currentYear) return true
-      return periodNum < currentMonth - 1 // -1 because we default to previous month
+      return periodNum < currentMonth
     }
   }, [periodType, year, periodNum])
 
-  // Check if can navigate backward (within 3-month limit)
+  // Check if can navigate backward (within 12-month limit)
   const canGoPrevious = useCallback(() => {
     const minDate = getMinDate()
     if (periodType === 'week') {
       const minWeek = getISOWeek(minDate)
       const minYear = getISOWeekYear(minDate)
       if (year > minYear) return true
-      return periodNum > minWeek
+      if (year === minYear) return periodNum > minWeek
+      return false
     } else {
       const minMonth = minDate.getMonth() + 1
       const minYear = minDate.getFullYear()
       if (year > minYear) return true
-      return periodNum > minMonth
+      if (year === minYear) return periodNum > minMonth
+      return false
     }
   }, [periodType, year, periodNum, getMinDate])
 
@@ -100,7 +103,7 @@ export function DigestPage() {
     if (periodType === 'week') {
       if (periodNum === 1) {
         setYear(y => y - 1)
-        setPeriodNum(52) // Approximate - could be 53 in some years
+        setPeriodNum(52)
       } else {
         setPeriodNum(p => p - 1)
       }
@@ -138,15 +141,27 @@ export function DigestPage() {
   const handlePeriodTypeChange = useCallback((type: 'week' | 'month') => {
     setPeriodType(type)
     if (type === 'week') {
-      const prev = getPreviousWeek()
-      setYear(prev.year)
-      setPeriodNum(prev.week)
+      const current = getCurrentWeek()
+      setYear(current.year)
+      setPeriodNum(current.week)
     } else {
-      const prev = getPreviousMonth()
-      setYear(prev.year)
-      setPeriodNum(prev.month)
+      const current = getCurrentMonth()
+      setYear(current.year)
+      setPeriodNum(current.month)
     }
   }, [])
+
+  // Handle email save (fake implementation)
+  const handleSaveEmail = () => {
+    if (email && email.includes('@')) {
+      setEmailSaved(true)
+      setTimeout(() => {
+        setShowEmailModal(false)
+        setEmailSaved(false)
+        setEmail('')
+      }, 1500)
+    }
+  }
 
   // Fetch digest data
   useEffect(() => {
@@ -170,6 +185,7 @@ export function DigestPage() {
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (showEmailModal) return // Don't navigate when modal is open
       if (e.key === 'ArrowLeft' && canGoPrevious()) {
         goPrevious()
       } else if (e.key === 'ArrowRight' && canGoNext()) {
@@ -179,22 +195,33 @@ export function DigestPage() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [canGoPrevious, canGoNext, goPrevious, goNext])
+  }, [canGoPrevious, canGoNext, goPrevious, goNext, showEmailModal])
 
   return (
     <div className="max-w-4xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="p-2.5 bg-primary/10 rounded-lg">
-            <Bell className="w-6 h-6 text-primary" />
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2.5 bg-primary/10 rounded-lg">
+              <Bell className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-semibold font-display">Policy Updates</h1>
+              <p className="text-sm text-muted-foreground">
+                Stay informed about policy changes
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-semibold font-display">Policy Updates</h1>
-            <p className="text-sm text-muted-foreground">
-              Stay informed about policy changes
-            </p>
-          </div>
+
+          {/* Email Alerts Button */}
+          <button
+            onClick={() => setShowEmailModal(true)}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-primary/10 text-primary hover:bg-primary/20 rounded-lg transition-colors"
+          >
+            <Mail className="w-4 h-4" />
+            Set up email alerts
+          </button>
         </div>
       </div>
 
@@ -276,6 +303,82 @@ export function DigestPage() {
       {!loading && !error && (
         <div className="mt-8 text-center text-xs text-muted-foreground">
           Use ← → arrow keys to navigate between periods
+        </div>
+      )}
+
+      {/* Email Alert Modal */}
+      {showEmailModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+          <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-md mx-4 overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <Mail className="w-5 h-5 text-primary" />
+                </div>
+                <h2 className="text-lg font-semibold">Email Alerts</h2>
+              </div>
+              <button
+                onClick={() => setShowEmailModal(false)}
+                className="p-2 hover:bg-accent rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="px-6 py-5">
+              {emailSaved ? (
+                <div className="flex flex-col items-center py-4">
+                  <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-full mb-3">
+                    <Check className="w-6 h-6 text-green-600 dark:text-green-400" />
+                  </div>
+                  <p className="text-sm font-medium">Email alerts configured!</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    You'll receive weekly policy digests
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Get weekly policy update summaries delivered straight to your inbox.
+                  </p>
+                  <label className="block text-sm font-medium mb-2">
+                    Email address
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="w-full px-4 py-2.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+                  />
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Digests are sent every Monday morning
+                  </p>
+                </>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            {!emailSaved && (
+              <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-muted/30">
+                <button
+                  onClick={() => setShowEmailModal(false)}
+                  className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveEmail}
+                  disabled={!email || !email.includes('@')}
+                  className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Save preferences
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
