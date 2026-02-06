@@ -45,13 +45,14 @@ export function DocumentViewer({ source, onClose }: DocumentViewerProps) {
   const [leftTab, setLeftTab] = useState<LeftPanelTab>('content')
   const [versions, setVersions] = useState<VersionMetadata[]>([])
   const [loadingVersions, setLoadingVersions] = useState(false)
-  const [selectedVersionFilename, setSelectedVersionFilename] = useState<string | null>(null)
+  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null)
 
-  // Build PDF URL from the source filename or selected version
-  const currentFilename = selectedVersionFilename || source.filename
-  const pdfUrl = currentFilename
-    ? `/api/projects/default/regsync/policies/${currentFilename}`
+  // Build PDF URL using document API
+  const currentVersionId = selectedVersionId || source.version_id
+  const pdfUrl = source.document_id
+    ? `/api/projects/default/regsync/documents/${source.document_id}/file${currentVersionId ? `?version_id=${currentVersionId}` : ''}`
     : null
+  const currentFilename = source.filename
 
   // Load versions when history tab is selected
   useEffect(() => {
@@ -85,10 +86,7 @@ export function DocumentViewer({ source, onClose }: DocumentViewerProps) {
   }
 
   const handleVersionClick = (version: VersionMetadata) => {
-    const filename = version.filename || version.file_name
-    if (filename) {
-      setSelectedVersionFilename(filename)
-    }
+    setSelectedVersionId(version.id)
   }
 
   return (
@@ -237,9 +235,8 @@ export function DocumentViewer({ source, onClose }: DocumentViewerProps) {
                         Click a version to preview it
                       </p>
                       {versions.map((version) => {
-                        const versionFilename = version.filename || version.file_name
-                        const isSelected = selectedVersionFilename === versionFilename
-                        const isCurrent = source.filename === versionFilename && !selectedVersionFilename
+                        const isSelected = selectedVersionId === version.id
+                        const isCurrent = source.version_id === version.id && !selectedVersionId
 
                         return (
                           <button
@@ -257,7 +254,7 @@ export function DocumentViewer({ source, onClose }: DocumentViewerProps) {
                                 <span className="font-medium text-sm">
                                   Version {version.version_number}
                                 </span>
-                                {isCurrent && !selectedVersionFilename && (
+                                {isCurrent && !selectedVersionId && (
                                   <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
                                     Current
                                   </span>
@@ -290,7 +287,7 @@ export function DocumentViewer({ source, onClose }: DocumentViewerProps) {
                 <h3 className="text-sm font-medium">Document Preview</h3>
                 <p className="text-xs text-muted-foreground">
                   {currentFilename || 'Policy document'}
-                  {selectedVersionFilename && selectedVersionFilename !== source.filename && (
+                  {selectedVersionId && selectedVersionId !== source.version_id && (
                     <span className="ml-2 text-amber-500">(older version)</span>
                   )}
                 </p>
