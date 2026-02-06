@@ -7,6 +7,7 @@ import { SourcesDisplay } from './SourcesDisplay'
 import { DocumentViewer } from './DocumentViewer'
 import { chatApi } from '@/api/chatApi'
 import { documentsApi } from '@/api/documentsApi'
+import { useAuth } from '@/contexts/AuthContext'
 
 // Storage key for chat history (per role)
 const CHAT_STORAGE_KEY = 'regsync_chat_history'
@@ -60,6 +61,7 @@ const getRelatedQuestions = (query: string): string[] => {
 }
 
 export function PolicyAssistant() {
+  const { isAuthenticated } = useAuth()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -71,6 +73,7 @@ export function PolicyAssistant() {
   const abortControllerRef = useRef<AbortController | null>(null)
   const typingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const pendingMessageRef = useRef<{ message: ChatMessage; fullContent: string } | null>(null)
+  const prevAuthRef = useRef<boolean | null>(null)
 
   // Load chat history from localStorage on mount
   useEffect(() => {
@@ -86,6 +89,22 @@ export function PolicyAssistant() {
       console.error('Failed to load chat history:', err)
     }
   }, [])
+
+  // Clear chat when admin signs in or out
+  useEffect(() => {
+    // Skip initial render
+    if (prevAuthRef.current === null) {
+      prevAuthRef.current = isAuthenticated
+      return
+    }
+    // Auth state changed - clear the chat
+    if (prevAuthRef.current !== isAuthenticated) {
+      setMessages([])
+      setFeedback({})
+      localStorage.removeItem(CHAT_STORAGE_KEY)
+      prevAuthRef.current = isAuthenticated
+    }
+  }, [isAuthenticated])
 
   // Save chat history to localStorage when messages change
   useEffect(() => {
