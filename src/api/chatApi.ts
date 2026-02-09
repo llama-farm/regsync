@@ -57,9 +57,6 @@ The policy changed the threshold from 50 to 45 days and updated references.
 
 Keep responses under 200 words. Bold **dates** and **numbers**.
 
-SOURCE CITATIONS:
-When referencing a source, use the EXACT document name provided in the context (e.g. "JBSA-Instruction-36-2102-Telework"), NEVER use internal regulation numbers found within the document text (e.g. do NOT say "AFI 36-202" or "Air Force Instruction 36-202").
-
 Military terms:
 - PCS (Permanent Change of Station) - when someone transfers to a new base
 - TDY (Temporary Duty) - short-term assignments away from home station
@@ -293,13 +290,15 @@ export const chatApi = {
       projectUrl('/chat/completions'),
       {
         messages: messagesWithSystem,
-        max_tokens: options?.maxTokens || 600,
+        max_tokens: options?.maxTokens || 600,  // Balanced for good answers
         temperature: options?.temperature || 0.7,
         // LlamaFarm expects flat RAG parameters (not nested rag object)
+        // hybrid retrieval combines semantic (embeddings) with BM25 (keyword) search
+        // for better coverage of military acronyms and terminology
         ...(ragEnabled && {
           rag_enabled: true,
           database: options?.database || DATASET,
-          rag_top_k: 4,
+          rag_top_k: 4,  // Reduced from 8 for speed
           rag_retrieval_strategy: 'hybrid',
         }),
       }
@@ -321,6 +320,7 @@ export const chatApi = {
       section: result.section || (result.metadata?.page_number ? `Page ${result.metadata.page_number}` : undefined),
       updated_at: result.updated_at,
       updated_by: result.updated_by,
+      // Extract additional fields from LlamaFarm metadata
       filename: (result.metadata?.filename || result.metadata?.source) as string | undefined,
       page_number: result.metadata?.page_number as number | undefined,
       source: result.metadata?.source as string | undefined,
