@@ -8,6 +8,9 @@ import {
   Calendar,
   AlertCircle,
   ExternalLink,
+  Plus,
+  Minus,
+  Sparkles,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { documentsApi } from '@/api/documentsApi'
@@ -210,6 +213,31 @@ export function DocumentChangesModal({
                         <p className="text-sm text-muted-foreground mb-2">
                           {version.notes}
                         </p>
+                      )}
+
+                      {/* Pre-computed change summary */}
+                      {version.summary && (
+                        <div className="bg-accent/50 rounded-lg p-3 mb-3">
+                          <div className="flex items-center gap-1.5 text-xs font-medium text-primary mb-2">
+                            <Sparkles className="w-3 h-3" />
+                            What Changed
+                          </div>
+                          <p className="text-sm text-foreground">
+                            {version.summary}
+                          </p>
+                          {version.diff?.stats && (
+                            <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                              <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                                <Plus className="w-3 h-3" />
+                                {version.diff.stats.added} additions
+                              </span>
+                              <span className="flex items-center gap-1 text-red-600 dark:text-red-400">
+                                <Minus className="w-3 h-3" />
+                                {version.diff.stats.removed} removals
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       )}
 
                       {/* Version details */}
