@@ -447,6 +447,40 @@ app.post('/v1/projects/:namespace/:project/documents/:documentId/versions', uplo
     status: 'pending' // New versions start as pending
   }
 
+  // Pre-compute diff and summary at upload time (since content is immutable)
+  const previousVersion = doc.versions.find(v => v.id === doc.current_version_id)
+  if (previousVersion) {
+    try {
+      const oldFilePath = path.join(POLICIES_DIR, previousVersion.filename)
+      const newFilePath = path.join(POLICIES_DIR, req.file.filename)
+
+      if (fs.existsSync(oldFilePath) && fs.existsSync(newFilePath)) {
+        const [oldText, newText] = await Promise.all([
+          extractPdfText(oldFilePath),
+          extractPdfText(newFilePath)
+        ])
+
+        if (oldText && newText) {
+          const changes = computeTextDiff(oldText, newText)
+          const summary = await generateChangeSummary(changes, doc.name)
+
+          // Count added/removed from changes
+          const stats = {
+            added: changes.filter(c => c.type === 'added').length,
+            removed: changes.filter(c => c.type === 'removed').length
+          }
+
+          version.diff = { changes, stats }
+          version.summary = summary
+          console.log(`✓ Pre-computed diff and summary for version ${versionId}`)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to pre-compute diff/summary:', error.message)
+      // Continue without pre-computed data - compare endpoint will compute on-demand
+    }
+  }
+
   metadata.documents[docIndex].versions.push(version)
   // Don't update current_version_id yet - wait for approval
   saveMetadata(metadata)
@@ -756,6 +790,27 @@ app.get('/v1/projects/:namespace/:project/documents/:documentId/compare', async 
     return res.status(404).json({ error: 'One or both versions not found' })
   }
 
+  // Return pre-computed data if available (computed at upload time)
+  if (newVersion.diff && newVersion.summary) {
+    console.log(`Returning pre-computed diff for version ${newVersionId}`)
+    return res.json({
+      document_id: doc.id,
+      document_name: doc.name,
+      old_version_id: oldVersionId,
+      new_version_id: newVersionId,
+      old_version: oldVersion,
+      new_version: newVersion,
+      total_changes: newVersion.diff.changes.length,
+      summary: newVersion.summary,
+      changes: newVersion.diff.changes,
+      compared_at: new Date().toISOString(),
+      precomputed: true
+    })
+  }
+
+  // Fallback: compute on-demand for legacy versions without pre-computed data
+  console.log(`Computing diff on-demand for version ${newVersionId} (no pre-computed data)`)
+
   // Extract text from both PDFs
   const oldFilePath = path.join(POLICIES_DIR, oldVersion.filename)
   const newFilePath = path.join(POLICIES_DIR, newVersion.filename)
@@ -763,8 +818,6 @@ app.get('/v1/projects/:namespace/:project/documents/:documentId/compare', async 
   if (!fs.existsSync(oldFilePath) || !fs.existsSync(newFilePath)) {
     return res.status(404).json({ error: 'PDF files not found on disk' })
   }
-
-  console.log(`Comparing versions: ${oldVersion.filename} vs ${newVersion.filename}`)
 
   const [oldText, newText] = await Promise.all([
     extractPdfText(oldFilePath),
@@ -791,7 +844,8 @@ app.get('/v1/projects/:namespace/:project/documents/:documentId/compare', async 
     total_changes: changes.length,
     summary,
     changes,
-    compared_at: new Date().toISOString()
+    compared_at: new Date().toISOString(),
+    precomputed: false
   })
 })
 

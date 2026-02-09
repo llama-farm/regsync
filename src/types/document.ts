@@ -28,6 +28,12 @@ export interface DocumentVersion {
   notes?: string
   status?: 'draft' | 'published' | 'pending'
   created_at?: string
+  // Pre-computed diff and summary (computed at upload time for non-first versions)
+  diff?: {
+    changes: Change[]
+    stats: { added: number; removed: number }
+  }
+  summary?: string
 }
 
 export interface Change {
