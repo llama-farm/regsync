@@ -15,13 +15,19 @@ Document versioning and policy assistant for regulatory compliance. Built to hel
 - **Source Citations** - Every answer includes citations to source documents
 - **Recent Updates** - See what policies have changed recently
 
+### Policy Updates (Digest)
+- **Weekly/Monthly Summaries** - Browse policy changes by calendar week or month
+- **Change Highlights** - See what changed in each policy update
+- **12-Month Archive** - Navigate back through a full year of changes
+- **Email Alerts** - Subscribe to weekly policy digest emails (demo)
+
 ## Tech Stack
 
 - **Frontend**: React 18 + TypeScript + Vite
 - **Styling**: Tailwind CSS + shadcn/ui (Radix primitives)
 - **State Management**: TanStack React Query
 - **HTTP Client**: Axios
-- **Backend**: [LlamaFarm](https://github.com/llama-farm/llamafarm) (documents API + RAG)
+- **Backend**: [LlamaFarm](https://github.com/llama-farm/llamafarm) (RAG + chat) + Express.js (documents API)
 
 ## Getting Started
 
@@ -44,11 +50,14 @@ npm install
 cp .env.local.example .env.local
 # Edit .env.local with your LlamaFarm server URL
 
+# Start the local API server (documents + digest)
+node server/index.js &
+
 # Start development server
 npm run dev
 ```
 
-The app will be available at `http://localhost:5173`
+The app will be available at `http://localhost:5173` (or 5174 if 5173 is in use)
 
 ### Environment Variables
 
@@ -62,12 +71,18 @@ VITE_PROJECT_NAME=regsync
 ## Project Structure
 
 ```
+server/                   # Local Express.js server
+├── index.js              # API routes (documents, digest)
+├── digest.js             # Digest computation logic
+└── digest.test.js        # Unit tests (23 tests)
+
 src/
 ├── api/                  # API client and endpoints
 │   ├── client.ts         # Axios instance configuration
 │   ├── documentsApi.ts   # Document CRUD operations
 │   ├── datasetsApi.ts    # Dataset management
-│   └── chatApi.ts        # RAG chat endpoint
+│   ├── chatApi.ts        # RAG chat endpoint
+│   └── digestApi.ts      # Digest fetch client
 ├── components/
 │   ├── admin/            # Admin-only components
 │   │   ├── AdminDashboard.tsx
@@ -76,6 +91,10 @@ src/
 │   │   └── ChangeReview.tsx
 │   ├── auth/             # Authentication
 │   │   └── SignInScreen.tsx
+│   ├── digest/           # Policy updates feature
+│   │   ├── DigestPage.tsx
+│   │   ├── DigestCard.tsx
+│   │   └── PeriodSelector.tsx
 │   ├── layout/           # App shell, header, sidebar
 │   ├── shared/           # Reusable components
 │   └── user/             # User-facing components
@@ -110,6 +129,7 @@ RegSync requires a LlamaFarm server with the documents API enabled. The frontend
 - `POST /v1/projects/{org}/{project}/documents/{id}/versions` - Upload new version
 - `POST /v1/projects/{org}/{project}/documents/{id}/detect-changes` - Detect changes
 - `POST /v1/projects/{org}/{project}/documents/{id}/compare` - Compare versions
+- `GET /v1/projects/{org}/{project}/digest` - Get policy digest (week/month)
 
 ## License
 
