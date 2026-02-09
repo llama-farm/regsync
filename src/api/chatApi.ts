@@ -271,60 +271,46 @@ export const chatApi = {
     const ragEnabled = options?.ragEnabled ?? true
     const userQuery = messages.filter(m => m.role === 'user').pop()?.content || ''
 
-    // Step 1: Run RAG query first so we can inject context with filenames
-    let ragResult: RAGQueryResponse | null = null
-    if (ragEnabled) {
-      try {
-        ragResult = await this.ragQuery({
+    // Prepend system prompt if not already present
+    const hasSystemPrompt = messages.some(m => m.role === 'system')
+    const messagesWithSystem = hasSystemPrompt
+      ? messages
+      : [{ role: 'system' as const, content: POLICY_SYSTEM_PROMPT }, ...messages]
+
+    // Run RAG query in parallel with chat to get sources
+    // LlamaFarm chat API uses RAG internally but doesn't return source metadata
+    const ragPromise = ragEnabled
+      ? this.ragQuery({
           query: userQuery,
           database: options?.database || DATASET,
           top_k: 5,
           retrieval_strategy: 'hybrid',
           embedding_strategy: EMBEDDING_STRATEGY,
-        })
-      } catch {
-        ragResult = null
-      }
-    }
+        }).catch(() => null)
+      : Promise.resolve(null)
 
-    // Step 2: Build messages with RAG context injected (including filenames)
-    const hasSystemPrompt = messages.some(m => m.role === 'system')
-    let messagesWithSystem = hasSystemPrompt
-      ? [...messages]
-      : [{ role: 'system' as const, content: POLICY_SYSTEM_PROMPT }, ...messages]
-
-    // Inject RAG context into the prompt so the LLM sees actual document names
-    if (ragResult?.results?.length) {
-      const contextBlocks = ragResult.results.map((r, i) => {
-        const filename = (r.metadata?.filename || r.metadata?.source || 'Unknown') as string
-        // Clean filename: remove timestamp prefix and .pdf extension
-        const cleanName = filename.replace(/^\d{13}-/, '').replace(/\.pdf$/i, '')
-        const page = r.metadata?.page_number ? ` (Page ${r.metadata.page_number})` : ''
-        return `[Source ${i + 1}: ${cleanName}${page}]\n${r.content}`
-      }).join('\n\n')
-
-      const contextMessage = `Based on the following policy documents, answer the user's question.\n\n${contextBlocks}`
-
-      // Insert context as a system message right before the user's last message
-      const lastUserIdx = messagesWithSystem.map(m => m.role).lastIndexOf('user')
-      if (lastUserIdx >= 0) {
-        messagesWithSystem.splice(lastUserIdx, 0, { role: 'system' as const, content: contextMessage })
-      }
-    }
-
-    // Step 3: Call chat WITHOUT LlamaFarm's built-in RAG (we handle it ourselves)
-    const chatResult = await apiClient.post<ChatCompletionResponse>(
+    const chatPromise = apiClient.post<ChatCompletionResponse>(
       projectUrl('/chat/completions'),
       {
         messages: messagesWithSystem,
         max_tokens: options?.maxTokens || 600,
         temperature: options?.temperature || 0.7,
+        // LlamaFarm expects flat RAG parameters (not nested rag object)
+        ...(ragEnabled && {
+          rag_enabled: true,
+          database: options?.database || DATASET,
+          rag_top_k: 4,
+          rag_retrieval_strategy: 'hybrid',
+        }),
       }
     )
 
+    // Wait for both to complete
+    const [ragResult, chatResult] = await Promise.all([ragPromise, chatPromise])
+
     const answer = chatResult.data.choices[0]?.message?.content || ''
 
-    // Map RAG results to sources for the source cards
+    // Map RAG results to sources
     const sources: CitedSource[] = (ragResult?.results || []).map((result) => ({
       content: result.content,
       score: result.score,
