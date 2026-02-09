@@ -57,6 +57,10 @@ The policy changed the threshold from 50 to 45 days and updated references.
 
 Keep responses under 200 words. Bold **dates** and **numbers**.
 
+IMPORTANT - SOURCE CITATIONS:
+Do NOT cite or reference specific document names, regulation numbers, or section numbers in your answer (e.g. do NOT say "according to AFI 36-202" or "per Section 3.3").
+The source documents are displayed separately below your response with accurate metadata. Just answer the question directly using the information provided.
+
 Military terms:
 - PCS (Permanent Change of Station) - when someone transfers to a new base
 - TDY (Temporary Duty) - short-term assignments away from home station
