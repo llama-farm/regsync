@@ -41,10 +41,10 @@ function getCurrentMonth(): { year: number; month: number } {
 }
 
 export function DigestPage() {
-  // Default to current week/month to show recent updates
-  const [periodType, setPeriodType] = useState<'week' | 'month'>('week')
-  const [year, setYear] = useState<number>(() => getCurrentWeek().year)
-  const [periodNum, setPeriodNum] = useState<number>(() => getCurrentWeek().week)
+  // Default to current month to show recent updates
+  const [periodType, setPeriodType] = useState<'week' | 'month'>('month')
+  const [year, setYear] = useState<number>(() => getCurrentMonth().year)
+  const [periodNum, setPeriodNum] = useState<number>(() => getCurrentMonth().month)
 
   const [digest, setDigest] = useState<DigestResponse | null>(null)
   const [loading, setLoading] = useState(true)
