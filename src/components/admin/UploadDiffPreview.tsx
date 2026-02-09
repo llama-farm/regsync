@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Loader2, AlertCircle, Plus, Minus, ChevronDown, ChevronUp, Check, X } from 'lucide-react'
+import { Loader2, AlertCircle, Plus, Minus, ChevronDown, ChevronUp, Check, X, Eye } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { compareDocumentVersions, LlamaFarmConnectionError } from '@/services/diffService'
 import type { DocumentChanges, DiffLine } from '@/types/diff'
@@ -25,6 +25,9 @@ export function UploadDiffPreview({
   const [error, setError] = useState<string | null>(null)
   const [changes, setChanges] = useState<DocumentChanges | null>(null)
   const [showDetails, setShowDetails] = useState(true)
+
+  // URL to preview the new version PDF
+  const previewUrl = `/api/projects/default/regsync/documents/${documentId}/file?version_id=${newVersionId}`
 
   useEffect(() => {
     loadDiff()
@@ -92,62 +95,82 @@ export function UploadDiffPreview({
         </div>
       )}
 
-      {/* Changes content */}
+      {/* Main content: diff + PDF preview side by side */}
       {!loading && !error && changes && (
         <>
-          {/* AI Summary */}
-          {changes.aiSummary && (
-            <div className="bg-accent/50 border border-border rounded-lg p-5">
-              <h3 className="text-sm font-medium mb-3">What Changed</h3>
-              <ul className="space-y-2">
-                {changes.aiSummary.bullets.map((bullet, index) => (
-                  <li key={index} className="flex items-start gap-2 text-sm">
-                    <span className="text-primary mt-0.5">•</span>
-                    <span>{bullet}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Stats */}
-          <div className="flex items-center gap-6 text-sm">
-            <span className="flex items-center gap-2 text-green-600 dark:text-green-400">
-              <Plus className="w-4 h-4" />
-              <span className="font-medium">{changes.diff.stats.addedLines}</span> lines added
-            </span>
-            <span className="flex items-center gap-2 text-red-600 dark:text-red-400">
-              <Minus className="w-4 h-4" />
-              <span className="font-medium">{changes.diff.stats.removedLines}</span> lines removed
-            </span>
-          </div>
-
-          {/* Detailed diff */}
-          {changes.diff.lines.length > 0 && (
-            <div className="bg-card border border-border rounded-lg overflow-hidden">
-              <button
-                onClick={() => setShowDetails(!showDetails)}
-                className="w-full flex items-center justify-between px-4 py-3 hover:bg-accent/50 transition-colors"
-              >
-                <span className="text-sm font-medium">Detailed Changes</span>
-                {showDetails ? (
-                  <ChevronUp className="w-4 h-4 text-muted-foreground" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                )}
-              </button>
-
-              {showDetails && (
-                <div className="border-t border-border p-4 max-h-80 overflow-y-auto">
-                  <div className="font-mono text-xs space-y-1">
-                    {changes.diff.lines.map((line, index) => (
-                      <DiffLineComponent key={index} line={line} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Left side: Changes */}
+            <div className="space-y-4">
+              {/* AI Summary */}
+              {changes.aiSummary && (
+                <div className="bg-accent/50 border border-border rounded-lg p-5">
+                  <h3 className="text-sm font-medium mb-3">What Changed</h3>
+                  <ul className="space-y-2">
+                    {changes.aiSummary.bullets.map((bullet, index) => (
+                      <li key={index} className="flex items-start gap-2 text-sm">
+                        <span className="text-primary mt-0.5">•</span>
+                        <span>{bullet}</span>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
+                </div>
+              )}
+
+              {/* Stats */}
+              <div className="flex items-center gap-6 text-sm">
+                <span className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                  <Plus className="w-4 h-4" />
+                  <span className="font-medium">{changes.diff.stats.addedLines}</span> lines added
+                </span>
+                <span className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                  <Minus className="w-4 h-4" />
+                  <span className="font-medium">{changes.diff.stats.removedLines}</span> lines removed
+                </span>
+              </div>
+
+              {/* Detailed diff */}
+              {changes.diff.lines.length > 0 && (
+                <div className="bg-card border border-border rounded-lg overflow-hidden">
+                  <button
+                    onClick={() => setShowDetails(!showDetails)}
+                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-accent/50 transition-colors"
+                  >
+                    <span className="text-sm font-medium">Detailed Changes</span>
+                    {showDetails ? (
+                      <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                    )}
+                  </button>
+
+                  {showDetails && (
+                    <div className="border-t border-border p-4 max-h-[400px] overflow-y-auto">
+                      <div className="font-mono text-xs space-y-1">
+                        {changes.diff.lines.map((line, index) => (
+                          <DiffLineComponent key={index} line={line} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-          )}
+
+            {/* Right side: PDF preview */}
+            <div className="bg-card border border-border rounded-lg overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-muted/30">
+                <Eye className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm font-medium">New Version Preview</span>
+              </div>
+              <div className="h-[500px] lg:h-[calc(100%-48px)] min-h-[400px]">
+                <iframe
+                  src={previewUrl}
+                  className="w-full h-full"
+                  title="Document Preview"
+                />
+              </div>
+            </div>
+          </div>
 
           {/* Action buttons */}
           <div className="flex gap-3 pt-2">

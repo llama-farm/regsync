@@ -309,7 +309,7 @@ export function DocumentUpload() {
     // Show diff preview for updates (when we have both version IDs)
     if (uploadedDoc.isUpdate && uploadedDoc.previousVersionId) {
       return (
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           <div className="mb-6">
             <button
               onClick={handleCancel}
