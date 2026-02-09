@@ -39,6 +39,7 @@ export function DocumentChangesModal({
   const [document, setDocument] = useState<PolicyDocument | null>(null)
   const [versions, setVersions] = useState<VersionWithNumber[]>([])
   const [viewingVersion, setViewingVersion] = useState<VersionWithNumber | null>(null)
+  const [loadingChanges, setLoadingChanges] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     if (isOpen && documentId) {
@@ -79,6 +80,41 @@ export function DocumentChangesModal({
       setError('Failed to load document versions. Make sure the server is running.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Load changes on-demand for versions without pre-computed data
+  const loadChangesForVersion = async (version: VersionWithNumber, previousVersionId: string) => {
+    setLoadingChanges(prev => new Set(prev).add(version.id))
+
+    try {
+      const changes = await documentsApi.compareVersions(documentId, previousVersionId, version.id)
+
+      // Update the version with the fetched data
+      setVersions(prev => prev.map(v => {
+        if (v.id === version.id) {
+          return {
+            ...v,
+            summary: changes.summary,
+            diff: {
+              changes: changes.changes || [],
+              stats: {
+                added: changes.changes?.filter((c: { type: string }) => c.type === 'added').length || 0,
+                removed: changes.changes?.filter((c: { type: string }) => c.type === 'removed').length || 0
+              }
+            }
+          }
+        }
+        return v
+      }))
+    } catch (err) {
+      console.error('Failed to load changes:', err)
+    } finally {
+      setLoadingChanges(prev => {
+        const next = new Set(prev)
+        next.delete(version.id)
+        return next
+      })
     }
   }
 
@@ -239,6 +275,36 @@ export function DocumentChangesModal({
                           )}
                         </div>
                       )}
+
+                      {/* Load Changes button for versions without pre-computed data */}
+                      {!version.summary && version.version_number > 1 && (() => {
+                        // Find the previous version (versions array is newest first, so previous is at higher index)
+                        const currentIndex = versions.findIndex(v => v.id === version.id)
+                        const previousVersion = versions[currentIndex + 1]
+                        if (!previousVersion) return null
+
+                        const isLoading = loadingChanges.has(version.id)
+
+                        return (
+                          <button
+                            onClick={() => loadChangesForVersion(version, previousVersion.id)}
+                            disabled={isLoading}
+                            className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 mb-3 disabled:opacity-50"
+                          >
+                            {isLoading ? (
+                              <>
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                                Loading changes...
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles className="w-3 h-3" />
+                                Load what changed
+                              </>
+                            )}
+                          </button>
+                        )
+                      })()}
 
                       {/* Version details */}
                       <div className="flex items-center gap-4 text-xs text-muted-foreground mb-3">
