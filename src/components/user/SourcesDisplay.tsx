@@ -51,7 +51,10 @@ function groupByDocument(sources: CitedSource[]): Map<string, CitedSource[]> {
 export function SourcesDisplay({ sources, onViewDocument }: SourcesDisplayProps) {
   const [expandedDocs, setExpandedDocs] = useState<Set<string>>(new Set())
 
-  const groupedSources = groupByDocument(sources)
+  // Filter out outdated sources - users can view old versions in the document viewer
+  const currentSources = sources.filter(s => s.is_current !== false)
+
+  const groupedSources = groupByDocument(currentSources)
   // Sort documents: Current first, then Outdated, then unknown
   const documents = Array.from(groupedSources.entries()).sort((a, b) => {
     const aIsCurrent = a[1][0]?.is_current
