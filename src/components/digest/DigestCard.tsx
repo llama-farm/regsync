@@ -1,12 +1,15 @@
-import { FileText, Calendar, User, ExternalLink, Sparkles } from 'lucide-react'
+import { useState } from 'react'
+import { FileText, Calendar, User, ExternalLink, Sparkles, History } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { DigestDocument } from '@/types/digest'
+import { DocumentChangesModal } from '@/components/shared/DocumentChanges'
 
 interface DigestCardProps {
   document: DigestDocument
 }
 
 export function DigestCard({ document }: DigestCardProps) {
+  const [showChanges, setShowChanges] = useState(false)
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       month: 'short',
@@ -99,16 +102,33 @@ export function DigestCard({ document }: DigestCardProps) {
           )}
         </div>
 
-        <a
-          href={`/api/projects/default/regsync/documents/${document.id}/file`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
-        >
-          View Document
-          <ExternalLink className="w-3.5 h-3.5" />
-        </a>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowChanges(true)}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <History className="w-3.5 h-3.5" />
+            See Changes
+          </button>
+          <a
+            href={`/api/projects/default/regsync/documents/${document.id}/file`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+          >
+            View Document
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>
       </div>
+
+      {/* Document Changes Modal */}
+      <DocumentChangesModal
+        isOpen={showChanges}
+        onClose={() => setShowChanges(false)}
+        documentId={document.id}
+        documentName={document.name}
+      />
     </div>
   )
 }
