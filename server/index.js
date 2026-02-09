@@ -816,7 +816,21 @@ app.get('/v1/projects/:namespace/:project/documents/:documentId/compare', async 
   const newFilePath = path.join(POLICIES_DIR, newVersion.filename)
 
   if (!fs.existsSync(oldFilePath) || !fs.existsSync(newFilePath)) {
-    return res.status(404).json({ error: 'PDF files not found on disk' })
+    // For mock documents without actual PDFs, use version notes as summary
+    const fallbackSummary = newVersion.notes || 'No change details available — PDF files not found on disk.'
+    return res.json({
+      document_id: doc.id,
+      document_name: doc.name,
+      old_version_id: oldVersionId,
+      new_version_id: newVersionId,
+      old_version: oldVersion,
+      new_version: newVersion,
+      total_changes: 0,
+      summary: fallbackSummary,
+      changes: [],
+      compared_at: new Date().toISOString(),
+      precomputed: false
+    })
   }
 
   const [oldText, newText] = await Promise.all([

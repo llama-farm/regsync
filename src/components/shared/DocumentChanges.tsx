@@ -109,6 +109,14 @@ export function DocumentChangesModal({
       }))
     } catch (err) {
       console.error('Failed to load changes:', err)
+      // Show notes as fallback if available
+      const fallback = version.notes || 'Unable to load change details.'
+      setVersions(prev => prev.map(v => {
+        if (v.id === version.id) {
+          return { ...v, summary: fallback }
+        }
+        return v
+      }))
     } finally {
       setLoadingChanges(prev => {
         const next = new Set(prev)
