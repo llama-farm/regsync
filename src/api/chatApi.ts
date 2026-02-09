@@ -57,9 +57,8 @@ The policy changed the threshold from 50 to 45 days and updated references.
 
 Keep responses under 200 words. Bold **dates** and **numbers**.
 
-IMPORTANT - SOURCE CITATIONS:
-Do NOT cite or reference specific document names, regulation numbers, or section numbers in your answer (e.g. do NOT say "according to AFI 36-202" or "per Section 3.3").
-The source documents are displayed separately below your response with accurate metadata. Just answer the question directly using the information provided.
+SOURCE CITATIONS:
+When referencing a source, use the EXACT document name provided in the context (e.g. "JBSA-Instruction-36-2102-Telework"), NEVER use internal regulation numbers found within the document text (e.g. do NOT say "AFI 36-202" or "Air Force Instruction 36-202").
 
 Military terms:
 - PCS (Permanent Change of Station) - when someone transfers to a new base
@@ -272,48 +271,60 @@ export const chatApi = {
     const ragEnabled = options?.ragEnabled ?? true
     const userQuery = messages.filter(m => m.role === 'user').pop()?.content || ''
 
-    // Prepend system prompt if not already present
-    const hasSystemPrompt = messages.some(m => m.role === 'system')
-    const messagesWithSystem = hasSystemPrompt
-      ? messages
-      : [{ role: 'system' as const, content: POLICY_SYSTEM_PROMPT }, ...messages]
-
-    // Run RAG query in parallel with chat to get sources
-    // LlamaFarm chat API uses RAG internally but doesn't return source metadata
-    const ragPromise = ragEnabled
-      ? this.ragQuery({
+    // Step 1: Run RAG query first so we can inject context with filenames
+    let ragResult: RAGQueryResponse | null = null
+    if (ragEnabled) {
+      try {
+        ragResult = await this.ragQuery({
           query: userQuery,
           database: options?.database || DATASET,
           top_k: 5,
           retrieval_strategy: 'hybrid',
           embedding_strategy: EMBEDDING_STRATEGY,
-        }).catch(() => null)
-      : Promise.resolve(null)
+        })
+      } catch {
+        ragResult = null
+      }
+    }
 
-    const chatPromise = apiClient.post<ChatCompletionResponse>(
+    // Step 2: Build messages with RAG context injected (including filenames)
+    const hasSystemPrompt = messages.some(m => m.role === 'system')
+    let messagesWithSystem = hasSystemPrompt
+      ? [...messages]
+      : [{ role: 'system' as const, content: POLICY_SYSTEM_PROMPT }, ...messages]
+
+    // Inject RAG context into the prompt so the LLM sees actual document names
+    if (ragResult?.results?.length) {
+      const contextBlocks = ragResult.results.map((r, i) => {
+        const filename = (r.metadata?.filename || r.metadata?.source || 'Unknown') as string
+        // Clean filename: remove timestamp prefix and .pdf extension
+        const cleanName = filename.replace(/^\d{13}-/, '').replace(/\.pdf$/i, '')
+        const page = r.metadata?.page_number ? ` (Page ${r.metadata.page_number})` : ''
+        return `[Source ${i + 1}: ${cleanName}${page}]\n${r.content}`
+      }).join('\n\n')
+
+      const contextMessage = `Based on the following policy documents, answer the user's question.\n\n${contextBlocks}`
+
+      // Insert context as a system message right before the user's last message
+      const lastUserIdx = messagesWithSystem.map(m => m.role).lastIndexOf('user')
+      if (lastUserIdx >= 0) {
+        messagesWithSystem.splice(lastUserIdx, 0, { role: 'system' as const, content: contextMessage })
+      }
+    }
+
+    // Step 3: Call chat WITHOUT LlamaFarm's built-in RAG (we handle it ourselves)
+    const chatResult = await apiClient.post<ChatCompletionResponse>(
       projectUrl('/chat/completions'),
       {
         messages: messagesWithSystem,
-        max_tokens: options?.maxTokens || 600,  // Balanced for good answers
+        max_tokens: options?.maxTokens || 600,
         temperature: options?.temperature || 0.7,
-        // LlamaFarm expects flat RAG parameters (not nested rag object)
-        // hybrid retrieval combines semantic (embeddings) with BM25 (keyword) search
-        // for better coverage of military acronyms and terminology
-        ...(ragEnabled && {
-          rag_enabled: true,
-          database: options?.database || DATASET,
-          rag_top_k: 4,  // Reduced from 8 for speed
-          rag_retrieval_strategy: 'hybrid',
-        }),
       }
     )
 
-    // Wait for both to complete
-    const [ragResult, chatResult] = await Promise.all([ragPromise, chatPromise])
-
     const answer = chatResult.data.choices[0]?.message?.content || ''
 
-    // Map RAG results to sources
+    // Map RAG results to sources for the source cards
     const sources: CitedSource[] = (ragResult?.results || []).map((result) => ({
       content: result.content,
       score: result.score,
@@ -324,7 +335,6 @@ export const chatApi = {
       section: result.section || (result.metadata?.page_number ? `Page ${result.metadata.page_number}` : undefined),
       updated_at: result.updated_at,
       updated_by: result.updated_by,
-      // Extract additional fields from LlamaFarm metadata
       filename: (result.metadata?.filename || result.metadata?.source) as string | undefined,
       page_number: result.metadata?.page_number as number | undefined,
       source: result.metadata?.source as string | undefined,
