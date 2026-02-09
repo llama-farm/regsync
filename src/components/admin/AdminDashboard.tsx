@@ -86,7 +86,11 @@ export function AdminDashboard() {
         const response = await documentsApi.listDocuments()
         // Handle case where API returns unexpected format
         if (response?.documents && Array.isArray(response.documents)) {
-          setPolicies(response.documents)
+          // Sort by most recently updated first
+          const sorted = [...response.documents].sort((a, b) =>
+            new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+          )
+          setPolicies(sorted)
         } else {
           throw new Error('Invalid API response format')
         }
