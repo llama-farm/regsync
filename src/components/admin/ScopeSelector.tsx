@@ -8,11 +8,12 @@ interface ScopeSelectorProps {
   value: PolicyScope | null
   onChange: (scope: PolicyScope | null) => void
   className?: string
+  disabled?: boolean
 }
 
 const scopeLevels: ScopeLevel[] = ['daf', 'majcom', 'installation', 'wing']
 
-export function ScopeSelector({ value, onChange, className }: ScopeSelectorProps) {
+export function ScopeSelector({ value, onChange, className, disabled }: ScopeSelectorProps) {
   const [selectedLevel, setSelectedLevel] = useState<ScopeLevel | null>(value?.level ?? null)
 
   const handleLevelChange = (level: ScopeLevel) => {
@@ -64,10 +65,15 @@ export function ScopeSelector({ value, onChange, className }: ScopeSelectorProps
             <label
               key={level}
               className={cn(
-                'flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors',
+                'flex items-center gap-3 p-3 rounded-lg border transition-colors',
+                disabled
+                  ? 'cursor-not-allowed opacity-60'
+                  : 'cursor-pointer',
                 selectedLevel === level
                   ? 'border-primary bg-primary/5'
-                  : 'border-border hover:border-primary/50'
+                  : disabled
+                    ? 'border-border'
+                    : 'border-border hover:border-primary/50'
               )}
             >
               <input
@@ -76,6 +82,7 @@ export function ScopeSelector({ value, onChange, className }: ScopeSelectorProps
                 value={level}
                 checked={selectedLevel === level}
                 onChange={() => handleLevelChange(level)}
+                disabled={disabled}
                 className="sr-only"
               />
               <div className={cn(
@@ -111,9 +118,11 @@ export function ScopeSelector({ value, onChange, className }: ScopeSelectorProps
           <select
             value={value?.value ?? ''}
             onChange={(e) => handleValueChange(e.target.value)}
+            disabled={disabled}
             className={cn(
               'w-full px-3 py-2 bg-background border border-input rounded-md',
-              'focus:outline-none focus:ring-2 focus:ring-ring'
+              'focus:outline-none focus:ring-2 focus:ring-ring',
+              'disabled:opacity-60 disabled:cursor-not-allowed'
             )}
           >
             <option value="">Select...</option>

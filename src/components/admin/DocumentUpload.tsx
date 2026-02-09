@@ -478,18 +478,20 @@ export function DocumentUpload() {
             dragActive
               ? 'border-primary bg-primary/5'
               : 'border-border hover:border-primary/50',
-            file && 'border-primary/50 bg-primary/5'
+            file && 'border-primary/50 bg-primary/5',
+            status !== 'idle' && 'opacity-60 pointer-events-none'
           )}
-          onDragEnter={handleDrag}
-          onDragLeave={handleDrag}
-          onDragOver={handleDrag}
-          onDrop={handleDrop}
+          onDragEnter={status === 'idle' ? handleDrag : undefined}
+          onDragLeave={status === 'idle' ? handleDrag : undefined}
+          onDragOver={status === 'idle' ? handleDrag : undefined}
+          onDrop={status === 'idle' ? handleDrop : undefined}
         >
           <input
             type="file"
             accept=".pdf"
             onChange={handleFileChange}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            disabled={status !== 'idle'}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
           />
 
           {file ? (
@@ -501,16 +503,18 @@ export function DocumentUpload() {
                   {(file.size / 1024 / 1024).toFixed(2)} MB
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault()
-                  setFile(null)
-                }}
-                className="p-1 hover:bg-accent rounded"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              {status === 'idle' && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    setFile(null)
+                  }}
+                  className="p-1 hover:bg-accent rounded"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
           ) : (
             <>
@@ -534,7 +538,8 @@ export function DocumentUpload() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g., Employee Handbook v2024"
-                className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                disabled={status !== 'idle'}
+                className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60 disabled:cursor-not-allowed"
                 required
               />
             </div>
@@ -548,7 +553,8 @@ export function DocumentUpload() {
                 value={shortTitle}
                 onChange={(e) => setShortTitle(e.target.value)}
                 placeholder="e.g., EMP-HB-2024"
-                className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                disabled={status !== 'idle'}
+                className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60 disabled:cursor-not-allowed"
               />
             </div>
           </>
@@ -559,6 +565,7 @@ export function DocumentUpload() {
           <ScopeSelector
             value={scope}
             onChange={setScope}
+            disabled={status !== 'idle'}
           />
         )}
 
