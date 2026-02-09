@@ -64,7 +64,7 @@ export function LocationContext() {
           <div className="px-3 py-2 border-b border-border">
             <h3 className="text-sm font-medium">Your Policy Access</h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Policies visible based on your assignment
+              Policies visible based on your location
             </p>
           </div>
 
@@ -90,7 +90,7 @@ export function LocationContext() {
           {/* Footer */}
           <div className="px-3 py-2 border-t border-border bg-muted/30 rounded-b-lg">
             <p className="text-xs text-muted-foreground">
-              Contact your administrator to update your assignment
+              Change location in settings to see different policies
             </p>
           </div>
         </div>
