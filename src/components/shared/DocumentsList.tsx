@@ -11,11 +11,6 @@ const getDocumentUrl = (documentId: string): string => {
   return `/api/projects/default/regsync/documents/${documentId}/file`
 }
 
-// Check if this is a real document (not mock)
-const isRealDocument = (docId: string): boolean => {
-  return !docId.startsWith('mock-')
-}
-
 // Mock data for additional documents (beyond what's in the database)
 const MOCK_DOCUMENTS: PolicyDocument[] = [
   {
@@ -166,14 +161,10 @@ export function DocumentsList() {
             </div>
           ) : (
             filteredDocuments.map((doc) => {
-              const isReal = isRealDocument(doc.id)
-
               return (
                 <div
                   key={doc.id}
-                  className={`bg-card border border-border rounded-lg p-4 hover:border-primary/50 transition-colors ${
-                    !isReal && 'opacity-60'
-                  }`}
+                  className="bg-card border border-border rounded-lg p-4 hover:border-primary/50 transition-colors"
                 >
                   <div className="flex items-start gap-4">
                     <div className="p-2 bg-primary/10 rounded-lg">
@@ -209,27 +200,23 @@ export function DocumentsList() {
                     </div>
                     {/* Action buttons */}
                     <div className="flex items-center gap-2 shrink-0">
-                      {isReal && (
-                        <>
-                          <button
-                            onClick={() => setSelectedDoc(doc)}
-                            className="px-3 py-1.5 text-xs border border-border rounded-md hover:bg-accent transition-colors"
-                          >
-                            <span className="flex items-center gap-1.5">
-                              <History className="w-3.5 h-3.5" />
-                              Changes
-                            </span>
-                          </button>
-                          <a
-                            href={getDocumentUrl(doc.id)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-                          >
-                            View
-                          </a>
-                        </>
-                      )}
+                      <button
+                        onClick={() => setSelectedDoc(doc)}
+                        className="px-3 py-1.5 text-xs border border-border rounded-md hover:bg-accent transition-colors"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <History className="w-3.5 h-3.5" />
+                          Changes
+                        </span>
+                      </button>
+                      <a
+                        href={getDocumentUrl(doc.id)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+                      >
+                        View
+                      </a>
                     </div>
                   </div>
                 </div>
