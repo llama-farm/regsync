@@ -33,6 +33,25 @@ export default defineConfig({
         secure: false,
         rewrite: (path) => path.replace(/^\/api/, '/v1'),
       },
+      // Demo features (limits, reset, samples) go to local server
+      '/api/projects/default/regsync/limits': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api/, '/v1'),
+      },
+      '/api/projects/default/regsync/reset': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api/, '/v1'),
+      },
+      '/api/projects/default/regsync/samples': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api/, '/v1'),
+      },
       // Policy PDF files served from local server
       '/api/projects/default/regsync/policies': {
         target: 'http://localhost:3001',

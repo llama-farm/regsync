@@ -1,0 +1,14 @@
+{
+  "samples": [
+    {
+      "id": "sample-telework-v3",
+      "type": "version_update",
+      "target_document_name": "JBSA-Instruction-36-2102-Telework",
+      "title": "Telework Policy v3 - Mental Health Provisions",
+      "short_title": "JBSA 36-2102 v3",
+      "description": "Adds mental health day provisions, increases internet stipend to $75/mo, and introduces coworking space policy.",
+      "filename": "JBSA-36-2102-Telework-v3.pdf",
+      "uploaded_by": "Capt. Sarah Mitchell"
+    }
+  ]
+}

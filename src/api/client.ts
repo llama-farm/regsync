@@ -14,6 +14,7 @@ export const apiClient = axios.create({
     'Content-Type': 'application/json',
   },
   timeout: 60000,
+  withCredentials: true,
 })
 
 // Error handling interceptor

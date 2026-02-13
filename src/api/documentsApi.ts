@@ -194,4 +194,49 @@ export const documentsApi = {
     )
     return data
   },
+
+  // Demo features
+
+  // Get demo limits and usage
+  async getLimits(): Promise<DemoLimits> {
+    const { data } = await apiClient.get<DemoLimits>(projectUrl('/limits'))
+    return data
+  },
+
+  // Reset session to seed state
+  async resetToSeed(): Promise<{ message: string; documents_restored: number; files_cleaned: number }> {
+    const { data } = await apiClient.post(projectUrl('/reset'))
+    return data
+  },
+
+  // List available sample documents
+  async listSamples(): Promise<{ samples: SampleDocument[] }> {
+    const { data } = await apiClient.get(projectUrl('/samples'))
+    return data
+  },
+
+  // Add a sample document to the session
+  async addSample(sampleId: string): Promise<{ message: string; type: string; document_id?: string }> {
+    const { data } = await apiClient.post(projectUrl(`/samples/${sampleId}/add`))
+    return data
+  },
+}
+
+// Demo types
+export interface DemoLimits {
+  documents: { current: number; max: number }
+  storage: { current_bytes: number; max_bytes: number }
+  can_upload: boolean
+}
+
+export interface SampleDocument {
+  id: string
+  type: 'new_document' | 'version_update'
+  title: string
+  short_title?: string
+  description: string
+  filename: string
+  uploaded_by: string
+  target_document_name?: string
+  already_added: boolean
 }

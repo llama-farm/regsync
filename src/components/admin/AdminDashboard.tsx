@@ -3,8 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { FileText, History, Upload, Eye, RefreshCw, Loader2, AlertCircle, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { PolicyDocument } from '@/types/document'
-import { documentsApi } from '@/api/documentsApi'
+import { documentsApi, type DemoLimits } from '@/api/documentsApi'
 import { FullPageDropZone } from '@/components/ui/FullPageDropZone'
+import { DemoBanner } from './DemoBanner'
+import { SampleLibrary } from './SampleLibrary'
+import { DemoToolbar } from './DemoToolbar'
 
 interface PolicyCardProps {
   policy: PolicyDocument
@@ -77,31 +80,37 @@ export function AdminDashboard() {
   const [policies, setPolicies] = useState<PolicyDocument[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [limits, setLimits] = useState<DemoLimits | null>(null)
+
+  const loadDocuments = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const [response, limitsResponse] = await Promise.all([
+        documentsApi.listDocuments(),
+        documentsApi.getLimits().catch(() => null),
+      ])
+      // Handle case where API returns unexpected format
+      if (response?.documents && Array.isArray(response.documents)) {
+        // Sort by most recently updated first
+        const sorted = [...response.documents].sort((a, b) =>
+          new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+        )
+        setPolicies(sorted)
+      } else {
+        throw new Error('Invalid API response format')
+      }
+      if (limitsResponse) setLimits(limitsResponse)
+    } catch (err) {
+      console.error('Failed to load documents:', err)
+      setError('Failed to load documents. Make sure the server is running.')
+      setPolicies([])
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    const loadDocuments = async () => {
-      try {
-        setLoading(true)
-        setError(null)
-        const response = await documentsApi.listDocuments()
-        // Handle case where API returns unexpected format
-        if (response?.documents && Array.isArray(response.documents)) {
-          // Sort by most recently updated first
-          const sorted = [...response.documents].sort((a, b) =>
-            new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-          )
-          setPolicies(sorted)
-        } else {
-          throw new Error('Invalid API response format')
-        }
-      } catch (err) {
-        console.error('Failed to load documents:', err)
-        setError('Failed to load documents. Make sure the server is running.')
-        setPolicies([])
-      } finally {
-        setLoading(false)
-      }
-    }
     loadDocuments()
   }, [])
 
@@ -139,6 +148,8 @@ export function AdminDashboard() {
   return (
     <FullPageDropZone onFileDrop={handleFileDrop}>
     <div className="max-w-6xl mx-auto">
+      <DemoBanner />
+
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -149,7 +160,9 @@ export function AdminDashboard() {
         </div>
         <button
           onClick={() => navigate('/upload')}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+          disabled={limits ? !limits.can_upload : false}
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          title={limits && !limits.can_upload ? 'Upload limit reached' : undefined}
         >
           <Upload className="w-4 h-4" />
           Upload New
@@ -176,7 +189,9 @@ export function AdminDashboard() {
           {/* Stats */}
           <div className="grid grid-cols-3 gap-4 mb-6">
             <div className="bg-card border border-border rounded-lg p-4">
-              <div className="text-2xl font-semibold font-display">{policies.length}</div>
+              <div className="text-2xl font-semibold font-display">
+                {limits ? `${limits.documents.current} / ${limits.documents.max}` : policies.length}
+              </div>
               <div className="text-sm text-muted-foreground">Total Policies</div>
             </div>
             <div className="bg-card border border-border rounded-lg p-4">
@@ -210,6 +225,13 @@ export function AdminDashboard() {
               <p className="text-sm mt-1">Upload your first document to get started.</p>
             </div>
           )}
+
+          <SampleLibrary
+            onSampleAdded={loadDocuments}
+            canUpload={limits ? limits.can_upload : true}
+          />
+
+          <DemoToolbar onResetComplete={loadDocuments} />
         </>
       )}
     </div>

@@ -526,6 +526,10 @@ export function DocumentUpload() {
           )}
         </div>
 
+        <p className="text-xs text-muted-foreground -mt-4">
+          Do not upload documents containing PII, PHI, or confidential information.
+        </p>
+
         {/* Document name */}
         {!isUpdate && (
           <>
