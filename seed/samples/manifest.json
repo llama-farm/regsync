@@ -1,13 +1,50 @@
 {
   "samples": [
     {
-      "id": "sample-telework-v3",
+      "id": "sample-afi-17-130-cybersecurity",
+      "type": "new_document",
+      "title": "Cybersecurity Program Management",
+      "short_title": "AFI 17-130",
+      "description": "DAF-level cybersecurity program management requirements for network-connected devices and systems.",
+      "filename": "AFI-17-130-Cybersecurity-Program-Management.pdf",
+      "uploaded_by": "TSgt. Williams"
+    },
+    {
+      "id": "sample-afi-36-2803-awards",
+      "type": "new_document",
+      "title": "Military Decorations and Awards",
+      "short_title": "AFI 36-2803",
+      "description": "Criteria and procedures for military decorations, awards, and recognition programs.",
+      "filename": "AFI-36-2803-Military-Decorations-and-Awards.pdf",
+      "uploaded_by": "Capt. Sarah Mitchell"
+    },
+    {
+      "id": "sample-afi-91-202-safety",
+      "type": "new_document",
+      "title": "Occupational Safety and Health",
+      "short_title": "AFI 91-202",
+      "description": "Occupational safety standards, hazard reporting, and workplace health requirements.",
+      "filename": "AFI-91-202-Occupational-Safety-and-Health.pdf",
+      "uploaded_by": "TSgt. Williams"
+    },
+    {
+      "id": "sample-travel-v3",
       "type": "version_update",
-      "target_document_name": "JBSA-Instruction-36-2102-Telework",
-      "title": "Telework Policy v3 - Mental Health Provisions",
-      "short_title": "JBSA 36-2102 v3",
-      "description": "Adds mental health day provisions, increases internet stipend to $75/mo, and introduces coworking space policy.",
-      "filename": "JBSA-36-2102-Telework-v3.pdf",
+      "target_document_name": "JBSA-Instruction-36-1201-Travel-Reimbursement",
+      "title": "Travel Reimbursement v3 - Digital Receipts",
+      "short_title": "JBSA 36-1201 v3",
+      "description": "Introduces digital receipt submission, updates per diem rates for 2026, and adds international travel provisions.",
+      "filename": "Instruction-36-1201-Travel-Reimbursement-v3.pdf",
+      "uploaded_by": "Capt. Sarah Mitchell"
+    },
+    {
+      "id": "sample-fitness-v2",
+      "type": "version_update",
+      "target_document_name": "JBSA-Instruction-36-1802-Physical-Fitness-Standards",
+      "title": "Physical Fitness Standards v2 - Updated Testing",
+      "short_title": "JBSA 36-1802 v2",
+      "description": "Revised fitness assessment components, updated exemption criteria, and added alternative testing options.",
+      "filename": "Instruction-36-1802-Physical-Fitness-Standards-v2.pdf",
       "uploaded_by": "Capt. Sarah Mitchell"
     }
   ]

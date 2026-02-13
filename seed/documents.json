@@ -4,9 +4,9 @@
       "id": "802ad7d9-8f19-48e7-852b-9ce206872042",
       "name": "JBSA-Instruction-36-3003-Leave-Pass",
       "short_title": "JBSA 36-3003",
-      "current_version_id": "5e773a6a-0a3e-4148-a4c5-06c6d2edaf53",
+      "current_version_id": "a1b2c3d4-3003-4000-v300-000000000003",
       "created_at": "2025-12-02T14:15:00.000Z",
-      "updated_at": "2026-01-14T10:30:00.000Z",
+      "updated_at": "2026-02-10T09:00:00.000Z",
       "versions": [
         {
           "id": "5f8798f3-55d6-447c-83a9-49a6f682932e",
@@ -27,6 +27,16 @@
           "created_at": "2026-01-14T10:30:00.000Z",
           "size": 17532,
           "status": "published"
+        },
+        {
+          "id": "a1b2c3d4-3003-4000-v300-000000000003",
+          "filename": "Instruction-36-3003-Leave-Pass-v3.pdf",
+          "original_name": "Instruction-36-3003-Leave-Pass-v3.pdf",
+          "uploaded_by": "Capt. Sarah Mitchell",
+          "notes": "Added emergency leave provisions, updated permissive TDY allowances, and revised pass duration limits.",
+          "created_at": "2026-02-10T09:00:00.000Z",
+          "size": 3957,
+          "status": "published"
         }
       ]
     },
@@ -34,9 +44,9 @@
       "id": "16169288-64a9-4ae9-9be4-4d8257a3de33",
       "name": "JBSA-Instruction-36-2102-Telework",
       "short_title": "JBSA 36-2102",
-      "current_version_id": "f61a0d99-73e7-41e3-bb14-e7a9505c9b4f",
+      "current_version_id": "a1b2c3d4-2102-4000-v300-000000000003",
       "created_at": "2025-10-15T09:00:00.000Z",
-      "updated_at": "2026-01-20T15:45:00.000Z",
+      "updated_at": "2026-02-08T11:30:00.000Z",
       "versions": [
         {
           "id": "405cd72b-cc88-4e3c-acf0-bf411fc972e3",
@@ -56,6 +66,16 @@
           "notes": "Expanded telework options to 3 days/week, increased internet stipend to $50/month, added cybersecurity requirements.",
           "created_at": "2026-01-20T15:45:00.000Z",
           "size": 22784,
+          "status": "published"
+        },
+        {
+          "id": "a1b2c3d4-2102-4000-v300-000000000003",
+          "filename": "Instruction-36-2102-Telework-v3.pdf",
+          "original_name": "Instruction-36-2102-Telework-v3.pdf",
+          "uploaded_by": "Capt. Sarah Mitchell",
+          "notes": "Added mental health day provisions, increased internet stipend to $75/mo, and introduced coworking space policy.",
+          "created_at": "2026-02-08T11:30:00.000Z",
+          "size": 4333,
           "status": "published"
         }
       ]
@@ -136,6 +156,106 @@
           "notes": "Patient safety reporting procedures and incident management for 73rd Medical Wing.",
           "created_at": "2026-02-09T19:05:01.195Z",
           "size": 21725,
+          "status": "published"
+        }
+      ]
+    },
+    {
+      "id": "b3a1d7e2-1201-4f8a-9c3b-7e5f6a8d9012",
+      "name": "JBSA-Instruction-36-1201-Travel-Reimbursement",
+      "short_title": "JBSA 36-1201",
+      "current_version_id": "d4c3b2a1-1201-4f8a-v200-000000000002",
+      "created_at": "2025-11-18T10:00:00.000Z",
+      "updated_at": "2026-01-25T14:00:00.000Z",
+      "versions": [
+        {
+          "id": "e5d4c3b2-1201-4f8a-v100-000000000001",
+          "filename": "Instruction-36-1201-Travel-Reimbursement-v1.pdf",
+          "original_name": "JBSA-Instruction-36-1201-Travel-Reimbursement.pdf",
+          "uploaded_by": "Capt. Sarah Mitchell",
+          "notes": "Initial travel reimbursement policy establishing per diem rates, voucher procedures, and approval workflows.",
+          "created_at": "2025-11-18T10:00:00.000Z",
+          "size": 3049,
+          "status": "published"
+        },
+        {
+          "id": "d4c3b2a1-1201-4f8a-v200-000000000002",
+          "filename": "Instruction-36-1201-Travel-Reimbursement-v2.pdf",
+          "original_name": "JBSA-Instruction-36-1201-Travel-Reimbursement-v2.pdf",
+          "uploaded_by": "Capt. Sarah Mitchell",
+          "notes": "Updated mileage rates, added ride-share reimbursement, and revised TDY lodging allowances.",
+          "created_at": "2026-01-25T14:00:00.000Z",
+          "size": 3777,
+          "status": "published"
+        }
+      ]
+    },
+    {
+      "id": "f7e6d5c4-1802-4a9b-8c2d-1a3b5c7d9e0f",
+      "name": "JBSA-Instruction-36-1802-Physical-Fitness-Standards",
+      "short_title": "JBSA 36-1802",
+      "current_version_id": "a8b7c6d5-1802-4a9b-v100-000000000001",
+      "created_at": "2025-10-01T08:00:00.000Z",
+      "updated_at": "2025-10-01T08:00:00.000Z",
+      "versions": [
+        {
+          "id": "a8b7c6d5-1802-4a9b-v100-000000000001",
+          "filename": "Instruction-36-1802-Physical-Fitness-Standards-v1.pdf",
+          "original_name": "JBSA-Instruction-36-1802-Physical-Fitness-Standards.pdf",
+          "uploaded_by": "Capt. Sarah Mitchell",
+          "notes": "Physical fitness standards, testing procedures, and exemption criteria for JBSA personnel.",
+          "created_at": "2025-10-01T08:00:00.000Z",
+          "size": 3627,
+          "status": "published"
+        }
+      ]
+    },
+    {
+      "id": "c9d8e7f6-3310-4b1c-a5d3-2e4f6a8c0b1d",
+      "name": "JBSA-Instruction-36-3310-Vehicle-Registration",
+      "short_title": "JBSA 36-3310",
+      "current_version_id": "b1a2c3d4-3310-4b1c-v100-000000000001",
+      "created_at": "2025-11-22T13:30:00.000Z",
+      "updated_at": "2025-11-22T13:30:00.000Z",
+      "versions": [
+        {
+          "id": "b1a2c3d4-3310-4b1c-v100-000000000001",
+          "filename": "Instruction-36-3310-Vehicle-Registration-v1.pdf",
+          "original_name": "JBSA-Instruction-36-3310-Vehicle-Registration.pdf",
+          "uploaded_by": "TSgt. Williams",
+          "notes": "Vehicle registration requirements, decal procedures, and parking regulations for JBSA installations.",
+          "created_at": "2025-11-22T13:30:00.000Z",
+          "size": 4055,
+          "status": "published"
+        }
+      ]
+    },
+    {
+      "id": "e2f1a0b9-4405-4c2d-b6e4-3f5a7c9d1e2f",
+      "name": "JBSA-Instruction-36-4405-Cybersecurity-Awareness",
+      "short_title": "JBSA 36-4405",
+      "current_version_id": "c2d3e4f5-4405-4c2d-v200-000000000002",
+      "created_at": "2025-10-28T09:15:00.000Z",
+      "updated_at": "2026-02-05T16:00:00.000Z",
+      "versions": [
+        {
+          "id": "d3e4f5a6-4405-4c2d-v100-000000000001",
+          "filename": "Instruction-36-4405-Cybersecurity-Awareness-v1.pdf",
+          "original_name": "JBSA-Instruction-36-4405-Cybersecurity-Awareness.pdf",
+          "uploaded_by": "TSgt. Williams",
+          "notes": "Cybersecurity awareness training requirements, phishing reporting procedures, and device security standards.",
+          "created_at": "2025-10-28T09:15:00.000Z",
+          "size": 3655,
+          "status": "published"
+        },
+        {
+          "id": "c2d3e4f5-4405-4c2d-v200-000000000002",
+          "filename": "Instruction-36-4405-Cybersecurity-Awareness-v2.pdf",
+          "original_name": "JBSA-Instruction-36-4405-Cybersecurity-Awareness-v2.pdf",
+          "uploaded_by": "TSgt. Williams",
+          "notes": "Added zero-trust requirements, updated MFA policies, and introduced quarterly phishing simulation metrics.",
+          "created_at": "2026-02-05T16:00:00.000Z",
+          "size": 4042,
           "status": "published"
         }
       ]
