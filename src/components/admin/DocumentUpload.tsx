@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Upload, FileText, X, Loader2, Calendar, Hash, AlertCircle, Check, ArrowLeft, Eye } from 'lucide-react'
+import { Upload, FileText, X, Loader2, Calendar, Hash, AlertCircle, Check, ArrowLeft, Eye, BookOpen } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import type { PolicyDocument } from '@/types/document'
@@ -12,6 +12,7 @@ import { UploadDiffPreview } from './UploadDiffPreview'
 import { ScopeSelector } from './ScopeSelector'
 import { MatchSuggestions } from './MatchSuggestions'
 import { FullPageDropZone } from '@/components/ui/FullPageDropZone'
+import { SampleLibraryModal } from './SampleLibrary'
 
 type UploadStatus = 'idle' | 'uploading' | 'detecting' | 'processing' | 'confirm' | 'publishing' | 'error'
 
@@ -46,7 +47,22 @@ export function DocumentUpload() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [uploadedDoc, setUploadedDoc] = useState<UploadedDocInfo | null>(null)
   const [matchResult, setMatchResult] = useState<MatchDetectionResult | null>(null)
+  const [showSamples, setShowSamples] = useState(false)
+  const [allDocuments, setAllDocuments] = useState<PolicyDocument[]>([])
   const previousVersionId = useRef<string | null>(existingDocument?.current_version_id || null)
+
+  // Fetch documents for sample library modal
+  useEffect(() => {
+    documentsApi.listDocuments()
+      .then(res => setAllDocuments(res.documents))
+      .catch(() => {})
+  }, [])
+
+  // Sync ref/state when re-navigating to the same page with different document
+  useEffect(() => {
+    previousVersionId.current = existingDocument?.current_version_id || null
+    setScope(existingDocument?.scope ?? null)
+  }, [existingDocument?.id])
 
   // Handle file dropped from another page (via navigation state)
   useEffect(() => {
@@ -531,9 +547,21 @@ export function DocumentUpload() {
           )}
         </div>
 
-        <p className="text-xs text-muted-foreground -mt-4">
-          Do not upload documents containing PII, PHI, or confidential information.
-        </p>
+        <div className="flex items-center justify-between -mt-4">
+          <p className="text-xs text-muted-foreground">
+            Do not upload documents containing PII, PHI, or confidential information.
+          </p>
+          {!isUpdate && status === 'idle' && (
+            <button
+              type="button"
+              onClick={() => setShowSamples(true)}
+              className="text-xs text-primary hover:text-primary/80 flex items-center gap-1 transition-colors whitespace-nowrap"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              Try a sample
+            </button>
+          )}
+        </div>
 
         {/* Document name */}
         {!isUpdate && (
@@ -624,6 +652,13 @@ export function DocumentUpload() {
         )}
       </form>
     </div>
+
+    <SampleLibraryModal
+      isOpen={showSamples}
+      onClose={() => setShowSamples(false)}
+      documents={allDocuments}
+      canUpload={true}
+    />
     </FullPageDropZone>
   )
 }
