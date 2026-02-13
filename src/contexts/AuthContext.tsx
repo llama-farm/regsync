@@ -43,13 +43,17 @@ const ADMIN_USER: AdminUser = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return sessionStorage.getItem('regsync_admin') === 'true'
+  })
 
   const login = () => {
+    sessionStorage.setItem('regsync_admin', 'true')
     setIsAuthenticated(true)
   }
 
   const logout = () => {
+    sessionStorage.removeItem('regsync_admin')
     setIsAuthenticated(false)
   }
 
