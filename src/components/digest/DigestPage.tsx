@@ -356,6 +356,9 @@ export function DigestPage() {
                   <p className="text-xs text-muted-foreground mt-2">
                     Digests are sent every Monday morning
                   </p>
+                  <p className="text-xs text-muted-foreground/60 mt-3 italic">
+                    Demo only — no emails will actually be sent.
+                  </p>
                 </>
               )}
             </div>
