@@ -11,70 +11,6 @@ const getDocumentUrl = (documentId: string): string => {
   return `/api/projects/default/regsync/documents/${documentId}/file`
 }
 
-// Mock data for additional documents (beyond what's in the database)
-const MOCK_DOCUMENTS: PolicyDocument[] = [
-  {
-    id: 'mock-1',
-    name: 'DAFI 36-2903 Dress and Personal Appearance',
-    short_title: 'DAFI 36-2903',
-    current_version_id: 'v2',
-    created_at: '2024-01-15T10:00:00Z',
-    updated_at: '2024-06-01T14:30:00Z',
-    created_by: 'SAF/PA',
-    scope: { level: 'daf', value: 'DAF' },
-  },
-  {
-    id: 'mock-2',
-    name: 'AETCI 36-2201 Training Administration',
-    short_title: 'AETCI 36-2201',
-    current_version_id: 'v3',
-    created_at: '2023-08-20T09:00:00Z',
-    updated_at: '2025-01-09T11:15:00Z',
-    created_by: 'AETC/A1',
-    scope: { level: 'majcom', value: 'AETC' },
-  },
-  {
-    id: 'mock-3',
-    name: 'JBSAI 31-101 Installation Security',
-    short_title: 'JBSAI 31-101',
-    current_version_id: 'v1',
-    created_at: '2024-03-10T08:00:00Z',
-    updated_at: '2024-03-10T08:00:00Z',
-    created_by: '502 ABW/CC',
-    scope: { level: 'installation', value: 'JBSA' },
-  },
-  {
-    id: 'mock-4',
-    name: '73 MDW Medical Records Management',
-    short_title: '73 MDWI 41-101',
-    current_version_id: 'v2',
-    created_at: '2023-01-01T00:00:00Z',
-    updated_at: '2024-12-15T16:00:00Z',
-    created_by: '73 MDW/SGH',
-    scope: { level: 'wing', value: '73 MDW' },
-  },
-  {
-    id: 'mock-5',
-    name: 'DAFMAN 17-1301 Computer Security',
-    short_title: 'DAFMAN 17-1301',
-    current_version_id: 'v1',
-    created_at: '2024-05-15T09:00:00Z',
-    updated_at: '2024-05-15T09:00:00Z',
-    created_by: 'SAF/CN',
-    scope: { level: 'daf', value: 'DAF' },
-  },
-  {
-    id: 'mock-6',
-    name: 'DoDI 1300.17 Religious Liberty',
-    short_title: 'DoDI 1300.17',
-    current_version_id: 'v3',
-    created_at: '2022-06-01T08:00:00Z',
-    updated_at: '2024-11-20T14:00:00Z',
-    created_by: 'USD(P&R)',
-    scope: { level: 'dod', value: 'DoD' },
-  },
-]
-
 export function DocumentsList() {
   const [documents, setDocuments] = useState<PolicyDocument[]>([])
   const [loading, setLoading] = useState(true)
@@ -87,16 +23,9 @@ export function DocumentsList() {
       setLoading(true)
       try {
         const response = await documentsApi.listDocuments()
-        // Combine real documents with mock data
-        const allDocs = [...response.documents, ...MOCK_DOCUMENTS]
-        // Remove duplicates by id
-        const uniqueDocs = allDocs.filter(
-          (doc, index, self) => index === self.findIndex((d) => d.id === doc.id)
-        )
-        setDocuments(uniqueDocs)
+        setDocuments(response.documents)
       } catch {
-        // Fall back to mock data on error
-        setDocuments(MOCK_DOCUMENTS)
+        setDocuments([])
       } finally {
         setLoading(false)
       }
