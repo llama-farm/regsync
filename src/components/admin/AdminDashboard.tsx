@@ -7,7 +7,6 @@ import { documentsApi, type DemoLimits } from '@/api/documentsApi'
 import { FullPageDropZone } from '@/components/ui/FullPageDropZone'
 import { DemoBanner } from './DemoBanner'
 import { SampleLibrary } from './SampleLibrary'
-import { DemoToolbar } from './DemoToolbar'
 
 interface PolicyCardProps {
   policy: PolicyDocument
@@ -230,8 +229,6 @@ export function AdminDashboard() {
             onSampleAdded={loadDocuments}
             canUpload={limits ? limits.can_upload : true}
           />
-
-          <DemoToolbar onResetComplete={loadDocuments} />
         </>
       )}
     </div>
