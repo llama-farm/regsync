@@ -1,6 +1,6 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Upload, FileText, X, Loader2, Calendar, Hash, AlertCircle, Check, ArrowLeft, Eye, BookOpen } from 'lucide-react'
+import { FileText, X, Loader2, Calendar, Hash, AlertCircle, Check, ArrowLeft, Eye, BookOpen } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import type { PolicyDocument } from '@/types/document'
@@ -11,7 +11,6 @@ import { useAuth } from '@/contexts/AuthContext'
 import { UploadDiffPreview } from './UploadDiffPreview'
 import { ScopeSelector } from './ScopeSelector'
 import { MatchSuggestions } from './MatchSuggestions'
-import { FullPageDropZone } from '@/components/ui/FullPageDropZone'
 import { SampleLibraryModal } from './SampleLibrary'
 
 type UploadStatus = 'idle' | 'uploading' | 'detecting' | 'processing' | 'confirm' | 'publishing' | 'error'
@@ -43,7 +42,6 @@ export function DocumentUpload() {
   const [shortTitle, setShortTitle] = useState('')
   const [scope, setScope] = useState<PolicyScope | null>(existingDocument?.scope ?? null)
   const [status, setStatus] = useState<UploadStatus>('idle')
-  const [dragActive, setDragActive] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [uploadedDoc, setUploadedDoc] = useState<UploadedDocInfo | null>(null)
   const [matchResult, setMatchResult] = useState<MatchDetectionResult | null>(null)
@@ -64,7 +62,7 @@ export function DocumentUpload() {
     setScope(existingDocument?.scope ?? null)
   }, [existingDocument?.id])
 
-  // Handle file dropped from another page (via navigation state)
+  // Handle file from navigation state (sample selection)
   useEffect(() => {
     if (droppedFile && droppedFile.type === 'application/pdf') {
       setFile(droppedFile)
@@ -76,52 +74,6 @@ export function DocumentUpload() {
       }
     }
   }, [droppedFile])
-
-  // Handle full-page file drop
-  const handleFullPageDrop = useCallback((droppedFile: File) => {
-    if (droppedFile.type === 'application/pdf') {
-      setFile(droppedFile)
-      if (!name) {
-        setName(droppedFile.name.replace('.pdf', ''))
-      }
-    }
-  }, [name])
-
-  const handleDrag = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true)
-    } else if (e.type === 'dragleave') {
-      setDragActive(false)
-    }
-  }, [])
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragActive(false)
-
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const droppedFile = e.dataTransfer.files[0]
-      if (droppedFile.type === 'application/pdf') {
-        setFile(droppedFile)
-        if (!name) {
-          setName(droppedFile.name.replace('.pdf', ''))
-        }
-      }
-    }
-  }, [name])
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const selectedFile = e.target.files[0]
-      setFile(selectedFile)
-      if (!name) {
-        setName(selectedFile.name.replace('.pdf', ''))
-      }
-    }
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -444,7 +396,6 @@ export function DocumentUpload() {
 
   // Upload form
   return (
-    <FullPageDropZone onFileDrop={handleFullPageDrop}>
     <div className="max-w-2xl mx-auto">
       <div className="mb-6">
         <button
@@ -492,33 +443,12 @@ export function DocumentUpload() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Drag & drop zone */}
-        <div
-          className={cn(
-            'relative border-2 border-dashed rounded-lg p-8 text-center transition-colors',
-            dragActive
-              ? 'border-primary bg-primary/5'
-              : 'border-border hover:border-primary/50',
-            file && 'border-primary/50 bg-primary/5',
-            status !== 'idle' && 'opacity-60 pointer-events-none'
-          )}
-          onDragEnter={status === 'idle' ? handleDrag : undefined}
-          onDragLeave={status === 'idle' ? handleDrag : undefined}
-          onDragOver={status === 'idle' ? handleDrag : undefined}
-          onDrop={status === 'idle' ? handleDrop : undefined}
-        >
-          <input
-            type="file"
-            accept=".pdf"
-            onChange={handleFileChange}
-            disabled={status !== 'idle'}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
-          />
-
-          {file ? (
-            <div className="flex items-center justify-center gap-3">
+        {/* File display or sample chooser */}
+        {file ? (
+          <div className="border border-primary/50 bg-primary/5 rounded-lg p-4">
+            <div className="flex items-center gap-3">
               <FileText className="w-8 h-8 text-primary" />
-              <div className="text-left">
+              <div className="flex-1 text-left">
                 <p className="font-medium">{file.name}</p>
                 <p className="text-sm text-muted-foreground">
                   {(file.size / 1024 / 1024).toFixed(2)} MB
@@ -527,41 +457,30 @@ export function DocumentUpload() {
               {status === 'idle' && (
                 <button
                   type="button"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    setFile(null)
-                  }}
+                  onClick={() => setFile(null)}
                   className="p-1 hover:bg-accent rounded"
                 >
                   <X className="w-4 h-4" />
                 </button>
               )}
             </div>
-          ) : (
-            <>
-              <Upload className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">
-                Drag and drop a PDF file here, or click to select
-              </p>
-            </>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between -mt-4">
-          <p className="text-xs text-muted-foreground">
-            Do not upload documents containing PII, PHI, or confidential information.
-          </p>
-          {!isUpdate && status === 'idle' && (
+          </div>
+        ) : (
+          <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
+            <BookOpen className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground mb-3">
+              Choose a sample document to try the upload workflow
+            </p>
             <button
               type="button"
               onClick={() => setShowSamples(true)}
-              className="text-xs text-primary hover:text-primary/80 flex items-center gap-1 transition-colors whitespace-nowrap"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors text-sm"
             >
-              <BookOpen className="w-3.5 h-3.5" />
-              Try a sample
+              <BookOpen className="w-4 h-4" />
+              Browse Sample Documents
             </button>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Document name */}
         {!isUpdate && (
@@ -618,7 +537,7 @@ export function DocumentUpload() {
         >
           {status === 'idle' && (
             <>
-              <Upload className="w-4 h-4" />
+              <Check className="w-4 h-4" />
               {isUpdate ? 'Upload New Version' : 'Upload Document'}
             </>
           )}
@@ -651,14 +570,13 @@ export function DocumentUpload() {
           </div>
         )}
       </form>
-    </div>
 
-    <SampleLibraryModal
-      isOpen={showSamples}
-      onClose={() => setShowSamples(false)}
-      documents={allDocuments}
-      canUpload={true}
-    />
-    </FullPageDropZone>
+      <SampleLibraryModal
+        isOpen={showSamples}
+        onClose={() => setShowSamples(false)}
+        documents={allDocuments}
+        canUpload={true}
+      />
+    </div>
   )
 }

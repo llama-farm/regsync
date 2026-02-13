@@ -1,22 +1,20 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FileText, History, Upload, Eye, RefreshCw, Loader2, AlertCircle, Trash2, BookOpen } from 'lucide-react'
+import { FileText, History, Eye, Loader2, AlertCircle, Trash2, BookOpen } from 'lucide-react'
 import { toast } from 'sonner'
 import type { PolicyDocument } from '@/types/document'
-import { documentsApi, type DemoLimits } from '@/api/documentsApi'
-import { FullPageDropZone } from '@/components/ui/FullPageDropZone'
+import { documentsApi } from '@/api/documentsApi'
 import { DemoBanner } from './DemoBanner'
 import { SampleLibraryModal } from './SampleLibrary'
 
 interface PolicyCardProps {
   policy: PolicyDocument
   onView: () => void
-  onUpdate: () => void
   onHistory: () => void
   onDelete: () => void
 }
 
-function PolicyCard({ policy, onView, onUpdate, onHistory, onDelete }: PolicyCardProps) {
+function PolicyCard({ policy, onView, onHistory, onDelete }: PolicyCardProps) {
   const updatedDate = new Date(policy.updated_at).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -56,18 +54,12 @@ function PolicyCard({ policy, onView, onUpdate, onHistory, onDelete }: PolicyCar
           View
         </button>
         <button
-          onClick={onUpdate}
-          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm bg-primary/10 text-primary hover:bg-primary/20 rounded-md transition-colors"
-        >
-          <RefreshCw className="w-3.5 h-3.5" />
-          Update
-        </button>
-        <button
           onClick={onHistory}
-          className="flex items-center justify-center px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent rounded-md transition-colors"
+          className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent rounded-md transition-colors"
           title="Version history"
         >
           <History className="w-3.5 h-3.5" />
+          History
         </button>
       </div>
     </div>
@@ -79,20 +71,14 @@ export function AdminDashboard() {
   const [policies, setPolicies] = useState<PolicyDocument[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [limits, setLimits] = useState<DemoLimits | null>(null)
   const [showSamples, setShowSamples] = useState(false)
 
   const loadDocuments = async () => {
     try {
       setLoading(true)
       setError(null)
-      const [response, limitsResponse] = await Promise.all([
-        documentsApi.listDocuments(),
-        documentsApi.getLimits().catch(() => null),
-      ])
-      // Handle case where API returns unexpected format
+      const response = await documentsApi.listDocuments()
       if (response?.documents && Array.isArray(response.documents)) {
-        // Sort by most recently updated first
         const sorted = [...response.documents].sort((a, b) =>
           new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
         )
@@ -100,7 +86,6 @@ export function AdminDashboard() {
       } else {
         throw new Error('Invalid API response format')
       }
-      if (limitsResponse) setLimits(limitsResponse)
     } catch (err) {
       console.error('Failed to load documents:', err)
       setError('Failed to load documents. Make sure the server is running.')
@@ -115,7 +100,6 @@ export function AdminDashboard() {
   }, [])
 
   const handleView = (policy: PolicyDocument) => {
-    // Open PDF in new browser tab
     const fileUrl = `/api/projects/default/regsync/documents/${policy.id}/file`
     window.open(fileUrl, '_blank')
   }
@@ -140,13 +124,7 @@ export function AdminDashboard() {
     }
   }
 
-  const handleFileDrop = (file: File) => {
-    // Navigate to upload page with the dropped file
-    navigate('/upload', { state: { droppedFile: file } })
-  }
-
   return (
-    <FullPageDropZone onFileDrop={handleFileDrop}>
     <div className="max-w-6xl mx-auto">
       <DemoBanner />
 
@@ -158,24 +136,13 @@ export function AdminDashboard() {
             You are authorized to update the following policy documents
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowSamples(true)}
-            className="flex items-center gap-2 px-4 py-2 border border-border text-foreground rounded-md hover:bg-accent transition-colors"
-          >
-            <BookOpen className="w-4 h-4" />
-            Sample Docs
-          </button>
-          <button
-            onClick={() => navigate('/upload')}
-            disabled={limits ? !limits.can_upload : false}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            title={limits && !limits.can_upload ? 'Upload limit reached' : undefined}
-          >
-            <Upload className="w-4 h-4" />
-            Upload New
-          </button>
-        </div>
+        <button
+          onClick={() => setShowSamples(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+        >
+          <BookOpen className="w-4 h-4" />
+          Add Sample Document
+        </button>
       </div>
 
       {/* Error status */}
@@ -198,9 +165,7 @@ export function AdminDashboard() {
           {/* Stats */}
           <div className="grid grid-cols-3 gap-4 mb-6">
             <div className="bg-card border border-border rounded-lg p-4">
-              <div className="text-2xl font-semibold font-display">
-                {limits ? `${limits.documents.current} / ${limits.documents.max}` : policies.length}
-              </div>
+              <div className="text-2xl font-semibold font-display">{policies.length}</div>
               <div className="text-sm text-muted-foreground">Total Policies</div>
             </div>
             <div className="bg-card border border-border rounded-lg p-4">
@@ -220,7 +185,6 @@ export function AdminDashboard() {
                 key={policy.id}
                 policy={policy}
                 onView={() => handleView(policy)}
-                onUpdate={() => navigate('/upload', { state: { document: policy } })}
                 onHistory={() => navigate(`/history/${policy.id}`)}
                 onDelete={() => handleDelete(policy)}
               />
@@ -229,9 +193,14 @@ export function AdminDashboard() {
 
           {policies.length === 0 && (
             <div className="text-center py-12 text-muted-foreground">
-              <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-50" />
               <p>No policy documents yet.</p>
-              <p className="text-sm mt-1">Upload your first document to get started.</p>
+              <button
+                onClick={() => setShowSamples(true)}
+                className="mt-2 text-sm text-primary hover:text-primary/80 transition-colors"
+              >
+                Add a sample document to get started
+              </button>
             </div>
           )}
 
@@ -239,11 +208,10 @@ export function AdminDashboard() {
             isOpen={showSamples}
             onClose={() => setShowSamples(false)}
             documents={policies}
-            canUpload={limits ? limits.can_upload : true}
+            canUpload={true}
           />
         </>
       )}
     </div>
-    </FullPageDropZone>
   )
 }
