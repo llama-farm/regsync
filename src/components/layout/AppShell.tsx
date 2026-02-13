@@ -90,11 +90,17 @@ export function AppShell({ children }: AppShellProps) {
         <span>Last sync: {lastSync}</span>
         <span className="text-muted-foreground/60">|</span>
         <span>{docCount} policies indexed</span>
+        <span className="ml-auto">
+          Want to see more? Contact us at{' '}
+          <a href="mailto:support@llamafarm.dev" className="text-primary hover:underline">
+            support@llamafarm.dev
+          </a>
+        </span>
         {isAdmin && (
           <button
             onClick={handleReset}
             disabled={resetting}
-            className="ml-auto flex items-center gap-1.5 px-2.5 py-1 text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 px-2.5 py-1 text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors disabled:opacity-50"
           >
             {resetting ? (
               <Loader2 className="w-3 h-3 animate-spin" />
