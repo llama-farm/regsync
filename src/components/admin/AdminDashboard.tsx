@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FileText, History, Upload, Eye, RefreshCw, Loader2, AlertCircle, Trash2 } from 'lucide-react'
+import { FileText, History, Upload, Eye, RefreshCw, Loader2, AlertCircle, Trash2, BookOpen } from 'lucide-react'
 import { toast } from 'sonner'
 import type { PolicyDocument } from '@/types/document'
 import { documentsApi, type DemoLimits } from '@/api/documentsApi'
 import { FullPageDropZone } from '@/components/ui/FullPageDropZone'
 import { DemoBanner } from './DemoBanner'
-import { SampleLibrary } from './SampleLibrary'
+import { SampleLibraryModal } from './SampleLibrary'
 
 interface PolicyCardProps {
   policy: PolicyDocument
@@ -80,6 +80,7 @@ export function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [limits, setLimits] = useState<DemoLimits | null>(null)
+  const [showSamples, setShowSamples] = useState(false)
 
   const loadDocuments = async () => {
     try {
@@ -157,15 +158,24 @@ export function AdminDashboard() {
             You are authorized to update the following policy documents
           </p>
         </div>
-        <button
-          onClick={() => navigate('/upload')}
-          disabled={limits ? !limits.can_upload : false}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          title={limits && !limits.can_upload ? 'Upload limit reached' : undefined}
-        >
-          <Upload className="w-4 h-4" />
-          Upload New
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowSamples(true)}
+            className="flex items-center gap-2 px-4 py-2 border border-border text-foreground rounded-md hover:bg-accent transition-colors"
+          >
+            <BookOpen className="w-4 h-4" />
+            Sample Docs
+          </button>
+          <button
+            onClick={() => navigate('/upload')}
+            disabled={limits ? !limits.can_upload : false}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title={limits && !limits.can_upload ? 'Upload limit reached' : undefined}
+          >
+            <Upload className="w-4 h-4" />
+            Upload New
+          </button>
+        </div>
       </div>
 
       {/* Error status */}
@@ -225,8 +235,10 @@ export function AdminDashboard() {
             </div>
           )}
 
-          <SampleLibrary
-            onSampleAdded={loadDocuments}
+          <SampleLibraryModal
+            isOpen={showSamples}
+            onClose={() => setShowSamples(false)}
+            documents={policies}
             canUpload={limits ? limits.can_upload : true}
           />
         </>

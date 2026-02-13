@@ -1,24 +1,28 @@
 import { useState, useEffect } from 'react'
-import { ChevronDown, ChevronRight, Plus, Check, FileText, RefreshCw, Loader2 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { X, FileText, RefreshCw, Loader2, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { documentsApi, type SampleDocument } from '@/api/documentsApi'
+import type { PolicyDocument } from '@/types/document'
 
-interface SampleLibraryProps {
-  onSampleAdded: () => void
+interface SampleLibraryModalProps {
+  isOpen: boolean
+  onClose: () => void
+  documents: PolicyDocument[]
   canUpload: boolean
 }
 
-export function SampleLibrary({ onSampleAdded, canUpload }: SampleLibraryProps) {
-  const [expanded, setExpanded] = useState(false)
+export function SampleLibraryModal({ isOpen, onClose, documents, canUpload }: SampleLibraryModalProps) {
+  const navigate = useNavigate()
   const [samples, setSamples] = useState<SampleDocument[]>([])
   const [loading, setLoading] = useState(false)
-  const [addingId, setAddingId] = useState<string | null>(null)
+  const [loadingId, setLoadingId] = useState<string | null>(null)
 
   useEffect(() => {
-    if (expanded && samples.length === 0) {
+    if (isOpen) {
       loadSamples()
     }
-  }, [expanded])
+  }, [isOpen])
 
   const loadSamples = async () => {
     setLoading(true)
@@ -32,83 +36,83 @@ export function SampleLibrary({ onSampleAdded, canUpload }: SampleLibraryProps) 
     }
   }
 
-  const handleAdd = async (sample: SampleDocument) => {
-    setAddingId(sample.id)
+  const handleSelect = async (sample: SampleDocument) => {
+    setLoadingId(sample.id)
     try {
-      const result = await documentsApi.addSample(sample.id)
-      toast.success(
-        result.type === 'new_document' ? 'Document added' : 'Version added',
-        {
-          description: result.type === 'version_update'
-            ? `New version pending approval for ${sample.target_document_name}`
-            : `${sample.title} added to library`,
+      // Fetch the sample PDF as a blob
+      const blob = await documentsApi.getSampleFile(sample.id)
+      const file = new File([blob], sample.filename, { type: 'application/pdf' })
+
+      onClose()
+
+      if (sample.type === 'version_update' && sample.target_document_name) {
+        // Find the target document to pass as existing document
+        const targetDoc = documents.find(d => d.name === sample.target_document_name)
+        if (targetDoc) {
+          navigate('/upload', { state: { document: targetDoc, droppedFile: file } })
+        } else {
+          toast.error('Target document not found', {
+            description: `Could not find "${sample.target_document_name}" in your documents.`,
+          })
         }
-      )
-      // Update the sample's already_added status
-      setSamples(prev =>
-        prev.map(s => s.id === sample.id ? { ...s, already_added: true } : s)
-      )
-      onSampleAdded()
+      } else {
+        // New document - navigate to upload with file and suggested name
+        navigate('/upload', { state: { droppedFile: file, suggestedName: sample.title, suggestedShortTitle: sample.short_title } })
+      }
     } catch (err) {
-      console.error('Failed to add sample:', err)
-      toast.error('Failed to add sample', {
+      console.error('Failed to load sample file:', err)
+      toast.error('Failed to load sample', {
         description: err instanceof Error ? err.message : 'An error occurred',
       })
     } finally {
-      setAddingId(null)
+      setLoadingId(null)
     }
   }
 
-  const availableCount = samples.filter(s => !s.already_added).length
-
-  if (samples.length === 0 && !expanded) {
-    return (
-      <div className="mt-6">
-        <button
-          onClick={() => setExpanded(true)}
-          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ChevronRight className="w-4 h-4" />
-          <span>Try It Out - Sample Documents</span>
-        </button>
-      </div>
-    )
-  }
+  if (!isOpen) return null
 
   return (
-    <div className="mt-6">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors mb-3"
-      >
-        {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-        <span>Try It Out - Sample Documents</span>
-        {availableCount > 0 && (
-          <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
-            {availableCount} available
-          </span>
-        )}
-      </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
 
-      {expanded && (
-        <div className="space-y-2">
+      {/* Modal */}
+      <div className="relative bg-background border border-border rounded-xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div>
+            <h2 className="text-lg font-semibold font-display">Sample Documents</h2>
+            <p className="text-sm text-muted-foreground">Select a document to try the upload workflow</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-2">
           {loading ? (
-            <div className="flex items-center justify-center py-4">
-              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
           ) : samples.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-2">No sample documents available yet.</p>
+            <p className="text-sm text-muted-foreground text-center py-8">No sample documents available.</p>
           ) : (
             samples.map(sample => (
-              <div
+              <button
                 key={sample.id}
-                className="flex items-center gap-3 bg-card border border-border rounded-lg px-4 py-3"
+                onClick={() => handleSelect(sample)}
+                disabled={loadingId === sample.id || !canUpload}
+                className="w-full flex items-center gap-3 bg-card border border-border rounded-lg px-4 py-3 hover:border-primary/50 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed group"
               >
                 <div className="flex-shrink-0">
                   {sample.type === 'new_document' ? (
-                    <FileText className="w-4 h-4 text-blue-400" />
+                    <FileText className="w-5 h-5 text-blue-400" />
                   ) : (
-                    <RefreshCw className="w-4 h-4 text-amber-400" />
+                    <RefreshCw className="w-5 h-5 text-amber-400" />
                   )}
                 </div>
 
@@ -120,43 +124,35 @@ export function SampleLibrary({ onSampleAdded, canUpload }: SampleLibraryProps) 
                         {sample.short_title}
                       </span>
                     )}
-                    <span className={`text-xs px-1.5 py-0.5 rounded flex-shrink-0 ${
-                      sample.type === 'new_document'
-                        ? 'bg-blue-500/10 text-blue-400'
-                        : 'bg-amber-500/10 text-amber-400'
-                    }`}>
-                      {sample.type === 'new_document' ? 'New Policy' : 'Version Update'}
-                    </span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5 truncate">{sample.description}</p>
+                  <span className={`inline-block text-xs px-1.5 py-0.5 rounded mt-1 ${
+                    sample.type === 'new_document'
+                      ? 'bg-blue-500/10 text-blue-400'
+                      : 'bg-amber-500/10 text-amber-400'
+                  }`}>
+                    {sample.type === 'new_document' ? 'New Policy' : `Update to ${sample.target_document_name}`}
+                  </span>
                 </div>
 
                 <div className="flex-shrink-0">
-                  {sample.already_added ? (
-                    <span className="flex items-center gap-1 text-xs text-green-400">
-                      <Check className="w-3.5 h-3.5" />
-                      Added
-                    </span>
+                  {loadingId === sample.id ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
                   ) : (
-                    <button
-                      onClick={() => handleAdd(sample)}
-                      disabled={addingId === sample.id || !canUpload}
-                      className="flex items-center gap-1 px-2.5 py-1 text-xs bg-primary/10 text-primary hover:bg-primary/20 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {addingId === sample.id ? (
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                      ) : (
-                        <Plus className="w-3 h-3" />
-                      )}
-                      Add
-                    </button>
+                    <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
                   )}
                 </div>
-              </div>
+              </button>
             ))
           )}
         </div>
-      )}
+
+        {!canUpload && (
+          <div className="px-5 py-3 border-t border-border text-xs text-muted-foreground text-center">
+            Upload limit reached. Reset the demo to try again.
+          </div>
+        )}
+      </div>
     </div>
   )
 }

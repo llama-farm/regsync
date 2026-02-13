@@ -1283,6 +1283,29 @@ app.get('/v1/projects/:namespace/:project/samples', (req, res) => {
   }
 })
 
+// Serve a sample PDF file
+app.get('/v1/projects/:namespace/:project/samples/:sampleId/file', (req, res) => {
+  if (!fs.existsSync(SEED_SAMPLES_MANIFEST)) {
+    return res.status(404).json({ error: 'No samples available' })
+  }
+
+  const manifest = JSON.parse(fs.readFileSync(SEED_SAMPLES_MANIFEST, 'utf-8'))
+  const sample = manifest.samples.find(s => s.id === req.params.sampleId)
+
+  if (!sample) {
+    return res.status(404).json({ error: 'Sample not found' })
+  }
+
+  const filePath = path.join(SEED_SAMPLES_DIR, sample.filename)
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'Sample file not found on disk' })
+  }
+
+  res.setHeader('Content-Type', 'application/pdf')
+  res.setHeader('Content-Disposition', `inline; filename="${sample.filename}"`)
+  res.sendFile(filePath)
+})
+
 // Add a sample document to the session
 app.post('/v1/projects/:namespace/:project/samples/:sampleId/add', async (req, res) => {
   if (!fs.existsSync(SEED_SAMPLES_MANIFEST)) {

@@ -220,6 +220,14 @@ export const documentsApi = {
     const { data } = await apiClient.post(projectUrl(`/samples/${sampleId}/add`))
     return data
   },
+
+  // Get a sample PDF file as a blob
+  async getSampleFile(sampleId: string): Promise<Blob> {
+    const { data } = await apiClient.get(projectUrl(`/samples/${sampleId}/file`), {
+      responseType: 'blob',
+    })
+    return data
+  },
 }
 
 // Demo types

@@ -33,6 +33,8 @@ export function DocumentUpload() {
   // Now receiving full document object instead of just ID
   const existingDocument = location.state?.document as PolicyDocument | undefined
   const droppedFile = location.state?.droppedFile as File | undefined
+  const suggestedName = location.state?.suggestedName as string | undefined
+  const suggestedShortTitle = location.state?.suggestedShortTitle as string | undefined
   const isUpdate = !!existingDocument
 
   const [file, setFile] = useState<File | null>(null)
@@ -51,7 +53,10 @@ export function DocumentUpload() {
     if (droppedFile && droppedFile.type === 'application/pdf') {
       setFile(droppedFile)
       if (!name) {
-        setName(droppedFile.name.replace('.pdf', ''))
+        setName(suggestedName || droppedFile.name.replace('.pdf', ''))
+      }
+      if (!shortTitle && suggestedShortTitle) {
+        setShortTitle(suggestedShortTitle)
       }
     }
   }, [droppedFile])
