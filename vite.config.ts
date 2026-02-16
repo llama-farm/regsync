@@ -10,6 +10,7 @@ export default defineConfig({
     },
   },
   server: {
+    allowedHosts: ['regsync.demos.rownd.ai'],
     port: 5174,
     proxy: {
       // Health check goes to LlamaFarm /health
